@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Hashtable;
 import java.awt.Point;
+import java.util.LinkedList;
 
 class HTAP
 {
@@ -12,6 +13,7 @@ class HTAP
     public static void bloc(Vertex[] vertices, int precision)
     //Assigns each node a bloc and inserts the node into that bloc
     {
+        System.out.println("\n" + "Assigning blocs...");
         for (Vertex v : vertices) {
             int x = v.loc.x;
             int y = v.loc.y;
@@ -31,22 +33,57 @@ class HTAP
         }
     }
     
-    public static void decimate(Bloc bloc)
+    public static Vertex[] decimate(Hashtable<Point,Bloc> blocs)
     //Decimates a bloc by selecting a sole survivor node
     {
-        double minRes = Double.POSITIVE_INFINITY;
-        for (Vertex v : bloc.vertices) {
-            double res = 0;
-            for (Edge e : v.neighbors) {
-                res += 1/e.weight;
+        Collection<Bloc> blocsAsCollection = blocs.values();
+        Vertex[] survivors = new Vertex[blocsAsCollection.size()];
+        int index = 0;
+        System.out.println("\n" + "Decimating...");
+        for (Bloc b : blocsAsCollection) {
+            double minRes = Double.POSITIVE_INFINITY;
+            for (Vertex v : b.vertices) {
+                double res = 0;
+                for (Edge e : v.neighbors) {
+                    res += 1/e.weight;
+                }
+                res = 1/res;
+                if (res < minRes) {
+                    minRes = res;
+                    b.surv = v;
+                }
             }
-            res = 1/res;
-            if (res < minRes) {
-                minRes = res;
-                bloc.surv = v;
+            survivors[index] = b.surv;
+            index++;
+            System.out.println("node " + b.surv + " survived bloc " + b);
+        }
+        return survivors;
+    }
+    
+    public static void voronoi(Vertex[] survivors)
+    //Determines which Voronoi region each node belongs to
+    //given a set of points which are at the center of the regions
+    {
+        System.out.println("\n" + "Determining Voronoi Regions...");
+        LinkedList<Vertex> queue = new LinkedList<Vertex>();
+        for (Vertex v : survivors) {
+            queue.add(v);
+            v.voronoiRegion = v;
+        }
+        while(!queue.isEmpty()) {
+            Vertex v = queue.poll();
+            LinkedList<Vertex> children = new LinkedList<Vertex>();
+            for (Edge e : v.neighbors) {
+                Vertex c = e.target;
+                if (c.voronoiRegion==null) { children.add(c); }
+            }
+            while(!children.isEmpty()) {
+                Vertex child = children.poll();
+                child.voronoiRegion = v;
+                System.out.println("node " + child + " assigned to voronoiregion " + v);
+                queue.add(child);
             }
         }
-        System.out.println("node " + bloc.surv + " survived bloc " + bloc);
     }
     
     public static void main(String[] args)
@@ -73,12 +110,10 @@ class HTAP
         f.neighbors = new Edge[]{   new Edge(f, d, 60) };
         s.neighbors = new Edge[]{   new Edge(s, d, 60) };
         
-        Vertex[] test = { a, d, g, b, f, s };
-        bloc(test,2);
-        Collection<Bloc> blocsAsList = blocs.values();
-        for (Bloc bloc : blocsAsList) {
-            decimate(bloc);
-        }
+        Vertex[] vertices = { a, d, g, b, f, s };
+        bloc(vertices,2);
+        Vertex[] survivors = decimate(blocs);
+        voronoi(survivors);
     }
 }
 
@@ -91,6 +126,7 @@ class Vertex //implements Comparable<Vertex>
     public Vertex prev; */
     public final Point loc;
     public Point bloc;
+    public Vertex voronoiRegion;
     
     public Vertex(String argName, int argX, int argY) {
         name = argName;
