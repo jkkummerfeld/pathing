@@ -6,15 +6,15 @@ import java.util.Hashtable;
 import java.awt.Point;
 import java.util.LinkedList;
 import java.util.Arrays;
+import java.util.Random;
 
 class HTAP
 {
-    public static Hashtable<Point,Bloc> blocs = new Hashtable<Point,Bloc>();
-
-    public static void bloc(Vertex[] vertices, int precision)
+    public static Hashtable<Point,Bloc> bloc(Vertex[] vertices, int precision)
     //Assigns each node a bloc and inserts the node into that bloc
     {
         System.out.println("\n" + "Assigning blocs...");
+        Hashtable<Point,Bloc> blocs = new Hashtable<Point,Bloc>();
         for (Vertex v : vertices) {
             int x = v.loc.x;
             int y = v.loc.y;
@@ -32,6 +32,8 @@ class HTAP
             blocs.put(key, currentBloc);
             System.out.println("node " + v + " assigned to bloc " + currentBloc);
         }
+        System.out.println("Number of blocs formed: " + blocs.size());
+        return blocs;
     }
     
     public static Vertex[] decimate(Hashtable<Point,Bloc> blocs)
@@ -68,21 +70,24 @@ class HTAP
         System.out.println("\n" + "Determining Voronoi Regions...");
         LinkedList<Vertex> queue = new LinkedList<Vertex>();
         for (Vertex v : survivors) {
+            v.vRegion = v;
+            v.verticesInVR.add(v);
             queue.add(v);
-            v.verticesInVR = new ArrayList<Vertex>();
         }
         while(!queue.isEmpty()) {
             Vertex v = queue.poll();
             LinkedList<Vertex> children = new LinkedList<Vertex>();
             for (Edge e : v.neighbors) {
                 Vertex c = e.target;
-                if (c.vRegion==null) { children.add(c); }
+                if (c.vRegion==null) {
+                    children.add(c);
+                }
             }
             while(!children.isEmpty()) {
                 Vertex child = children.poll();
                 v.verticesInVR.add(child);
-                child.vRegion = v;
-                System.out.println("node " + child + " assigned to voronoiregion " + v);
+                child.vRegion = v.vRegion;
+                System.out.println("node " + child + " assigned to VR " + v.vRegion);
                 queue.add(child);
             }
         }
@@ -92,29 +97,18 @@ class HTAP
     //Places edges between survivor nodes whose voronoi regions are connected
     {
         System.out.println("\n" + "Placing edges between survivor nodes...");
-        int index = 0;
-        while (index < survivors.length) {
-            Vertex s = survivors[index];
-            s.oldNeighbors = s.neighbors;
-            s.neighbors = new ArrayList<Edge>();
-            for (Vertex v : s.verticesInVR) {
-                for (Edge e : v.neighbors) {
-                    Vertex u = e.target;
-                    Vertex t = u.vRegion;
-                    if (s.loc != t.loc) {
-                        Edge newE = new Edge(s,t,0);
-                        boolean notContained = true;
-                        for (Edge n : s.neighbors) {
-                            if (n.equals(newE)) { notContained = false; }
-                        }
-                        if (notContained) {
-                            s.neighbors.add(newE);
-                            System.out.println("Added an edge between " + s + " and " + t);
-                        }
-                    }
+        for (int i = 0; i < survivors.length ; i++) {
+            for (int j = i+1; j < survivors.length; j++) {
+                Vertex u = survivors[i];
+                Vertex v = survivors[j];
+                if (u.vConnected(v) || v.vConnected(u)) {
+                    Edge e1 = new Edge(u, v, 0);
+                    Edge e2 = new Edge(v, u, 0);
+                    if (!u.hasNeighbor(e1)) { u.newNeighbors.add(e1); }
+                    if (!v.hasNeighbor(e2)) { v.newNeighbors.add(e2); }
+                    System.out.println("Added an edge between " + u + " and " + v);
                 }
             }
-            index++;
         }
     }
     
@@ -126,12 +120,8 @@ class HTAP
             for (int j = i+1; j < survivors.length ; j++) {
                 Vertex u = survivors[i];
                 Vertex v = survivors[j];
-                if (u.connected(v)) {
+                if (u.vConnected(v) || v.vConnected(u)) {
                     ArrayList<Vertex> graph = new ArrayList<Vertex>();
-                    ArrayList<Edge> temp1 = u.neighbors;
-                    ArrayList<Edge> temp2 = v.neighbors;
-                    u.neighbors = u.oldNeighbors;
-                    v.neighbors = v.oldNeighbors;
                     for (Vertex child : u.verticesInVR) { graph.add(child); }
                     for (Vertex child : v.verticesInVR) { graph.add(child); }
                     graph.add(u);
@@ -139,63 +129,82 @@ class HTAP
                     Vertex[] graphAsArray = new Vertex[graph.size()];
                     graphAsArray = graph.toArray(graphAsArray);
                     double distUToV = Dijkstra.minDist(graphAsArray, u, v);
-                    u.neighbors = temp1;
-                    v.neighbors = temp2;
                     u.setNeighborWeight(v, distUToV);
                     v.setNeighborWeight(u, distUToV);
-                    System.out.println("Set weight between " + u + " and " + v +
-                        " to " + distUToV);
+                    System.out.println("Set weight between " + u + " and " + v + ": "
+                        + String.format("%.3f", distUToV));
                 }
             }
-        }       
+        }
+
+        for (Vertex v : survivors) { v.neighbors = v.newNeighbors; }
+    }
+    
+    public static void calibrateLocations(Vertex[] survivors) {
+        for (Vertex v : survivors) { v.loc = v.bloc; }
     }
     
     public static void main(String[] args)
     {
-        Vertex a = new Vertex("Aurora", 2, 3);
-        Vertex d = new Vertex("Denver", 2, 2);
-        Vertex g = new Vertex("Golden", 2, 1);
-        Vertex b = new Vertex("Boulder", 1, 1);
-        Vertex f = new Vertex("Fort Collins", 0, 2);
-        Vertex s = new Vertex("Colorado Springs", 3, 1);
+        int size = 16;
+        Vertex[] graph = new Vertex[size*size];
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                String name = "("+Integer.toString(i)+","+Integer.toString(j)+")";
+                graph[i*size+j] = new Vertex(name, i, j);
+            }
+        }
 
-        a.neighbors.add(new Edge(a, d, 30));
-        a.neighbors.add(new Edge(a, g, 45));
-        
-        d.neighbors.add(new Edge(d, a, 30));
-        d.neighbors.add(new Edge(d, g, 20));
-        d.neighbors.add(new Edge(d, b, 40));
-        d.neighbors.add(new Edge(d, f, 60));
-        d.neighbors.add(new Edge(d, s, 60));
-        
-        g.neighbors.add(new Edge(g, d, 20));
-        g.neighbors.add(new Edge(g, a, 45));
-        g.neighbors.add(new Edge(g, b, 30));
-        
-        b.neighbors.add(new Edge(b, g, 30));
-        b.neighbors.add(new Edge(b, d, 40));
-        
-        f.neighbors.add(new Edge(f, d, 60));
-        
-        s.neighbors.add(new Edge(s, d, 60));
-        
-        Vertex[] vertices = { a, d, g, b, f, s };
-        bloc(vertices,2);
-        Vertex[] survivors = decimate(blocs);
-        voronoi(survivors);
-        link(survivors);
-        setWeights(survivors);
+        int[] cardinalDirections = { 1, -1, size, -size };
+        for (int index = 0; index < size*size; index++) {
+            Vertex v = graph[index];
+            Random rng = new Random();
+            for (int offset : cardinalDirections) {
+                int nIndex = index+offset;
+                if (rng.nextBoolean() && nIndex >= 0 && nIndex < size*size
+                    && (nIndex/size == index/size || nIndex%size == index%size)) {
+                    Vertex u = graph[nIndex];
+                    Edge e1 = new Edge(v, u, rng.nextDouble());
+                    Edge e2 = new Edge(u, v, e1.weight);
+                    if (!v.connected(u)) { v.neighbors.add(e1); }
+                    if (!u.connected(v)) { u.neighbors.add(e2); }
+                }
+            }
+        }
+
+        int numberOfBlocs = size*size;
+        printGraph(graph);
+        while(numberOfBlocs > 4) {
+            Hashtable<Point,Bloc> blocs = bloc(graph,2);
+            numberOfBlocs = blocs.size();
+            Vertex[] survivors = decimate(blocs);
+            voronoi(survivors);
+            link(survivors);
+            setWeights(survivors);
+            calibrateLocations(survivors);
+            graph = survivors;
+        }
+        printGraph(graph);
     }
+    
+    public static void printGraph(Vertex[] graph) {
+        System.out.println("\n Displaying graph...");
+        System.out.println("Vertices: " + Arrays.asList(graph));
+        System.out.println("Edges: ");
+        for (Vertex v : graph) {
+            for (Edge e : v.neighbors) { System.out.println(e); }
+        }
+    }        
 }
 
 class Vertex implements Comparable<Vertex>
 {
     public final String name;
     public ArrayList<Edge> neighbors;
-    public ArrayList<Edge> oldNeighbors;
+    public ArrayList<Edge> newNeighbors;
     public double minDistance = Double.POSITIVE_INFINITY;
     public Vertex prev;
-    public final Point loc;
+    public Point loc;
     public Point bloc;
     public Vertex vRegion;
     public ArrayList<Vertex> verticesInVR;
@@ -204,29 +213,37 @@ class Vertex implements Comparable<Vertex>
         name = argName;
         loc = new Point(argX, argY);
         neighbors = new ArrayList<Edge>();
+        newNeighbors = new ArrayList<Edge>();
+        verticesInVR = new ArrayList<Vertex>();
     }
     
-    public String toString() {
-        return name;
-    }
-    public int compareTo(Vertex v) {
-        return Double.compare(minDistance, v.minDistance);
-    }
+    public String toString() { return name; }
+    public int compareTo(Vertex v) { return Double.compare(minDistance, v.minDistance); }
     
     public boolean connected(Vertex v) {
         for (Edge e : neighbors) {
-            if (e.target.loc == v.loc) { return true; }
-        }
-        for (Edge e : v.neighbors) {
-            if (e.target.loc == loc) { return true; }
-        }
+            if (e.target.name == v.name) { return true; } }
         return false;
     }
     
+    public boolean vConnected(Vertex v) {
+        for (Vertex u : verticesInVR) {
+            for (Vertex w : v.verticesInVR) {
+                if (u.connected(w)) { return true; } } }
+        return false;
+    }
+        
     public void setNeighborWeight(Vertex target, double weight) {
-        for (Edge e : neighbors) {
-            if (e.target.loc == target.loc) { e.weight = weight; }
+        for (Edge e : newNeighbors) {
+            if (e.target.name == target.name) { e.weight = weight; }
         }
+    }
+    
+    public boolean hasNeighbor(Edge e) {
+        for (Edge n : newNeighbors) {
+            if (e.equals(n)) { return true; }
+        }
+        return false;
     }
 }
 
@@ -249,6 +266,10 @@ class Edge
         } else {
             return false;
         }
+    }
+    
+    public String toString() {
+        return source.toString() + "--[ " + String.format("%.3f", weight) + " ]-->" + target.toString();
     }
 }
 
@@ -275,6 +296,7 @@ class Dijkstra
 {
     public static double minDist(Vertex[] graph, Vertex source, Vertex target)
     {
+        for (Vertex v : graph) { v.minDistance = Double.POSITIVE_INFINITY; }
         source.minDistance = 0.0;
         PriorityQueue<Vertex> queue = new PriorityQueue<Vertex>();
       	queue.add(source);
@@ -291,7 +313,7 @@ class Dijkstra
                     if (distanceThroughU < v.minDistance) {
                         queue.remove(v);
                         v.minDistance = distanceThroughU;
-                        if (v.loc == target.loc) { minDist = v.minDistance; }
+                        if (v.name == target.name) { minDist = v.minDistance; }
                         v.prev = u;
                         queue.add(v);
                     }

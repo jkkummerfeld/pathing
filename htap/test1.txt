@@ -1,0 +1,35 @@
+//put into main method of htap.java
+
+Vertex a = new Vertex("Aurora", 2, 3);
+        Vertex d = new Vertex("Denver", 2, 2);
+        Vertex g = new Vertex("Golden", 2, 1);
+        Vertex b = new Vertex("Boulder", 1, 1);
+        Vertex f = new Vertex("Fort Collins", 0, 2);
+        Vertex s = new Vertex("Colorado Springs", 3, 1);
+
+        a.neighbors.add(new Edge(a, d, 30));
+        a.neighbors.add(new Edge(a, g, 45));
+        
+        d.neighbors.add(new Edge(d, a, 30));
+        d.neighbors.add(new Edge(d, g, 20));
+        d.neighbors.add(new Edge(d, b, 40));
+        d.neighbors.add(new Edge(d, f, 60));
+        d.neighbors.add(new Edge(d, s, 60));
+        
+        g.neighbors.add(new Edge(g, d, 20));
+        g.neighbors.add(new Edge(g, a, 45));
+        g.neighbors.add(new Edge(g, b, 30));
+        
+        b.neighbors.add(new Edge(b, g, 30));
+        b.neighbors.add(new Edge(b, d, 40));
+        
+        f.neighbors.add(new Edge(f, d, 60));
+        
+        s.neighbors.add(new Edge(s, d, 60));
+        
+        Vertex[] vertices = { a, d, g, b, f, s };
+        int numberOfBlocs = bloc(vertices,2);
+        Vertex[] survivors = decimate(blocs);
+        voronoi(survivors);
+        link(survivors);
+        setWeights(survivors);
