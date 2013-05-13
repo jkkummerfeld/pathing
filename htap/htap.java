@@ -7,13 +7,14 @@ import java.awt.Point;
 import java.util.LinkedList;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.Stack;
 
 class HTAP
 {
     public static Hashtable<Point,Bloc> bloc(Vertex[] vertices, int precision)
     //Assigns each node a bloc and inserts the node into that bloc
     {
-        System.out.println("\n" + "Assigning blocs...");
+        //System.out.println("\n" + "Assigning blocs...");
         Hashtable<Point,Bloc> blocs = new Hashtable<Point,Bloc>();
         for (Vertex v : vertices) {
             int x = v.loc.x;
@@ -30,9 +31,9 @@ class HTAP
             }
             currentBloc.add(v);
             blocs.put(key, currentBloc);
-            System.out.println("node " + v + " assigned to bloc " + currentBloc);
+            //System.out.println("node " + v + " assigned to bloc " + currentBloc);
         }
-        System.out.println("Number of blocs formed: " + blocs.size());
+        //System.out.println("Number of blocs formed: " + blocs.size());
         return blocs;
     }
     
@@ -42,7 +43,7 @@ class HTAP
         Collection<Bloc> blocsAsCollection = blocs.values();
         Vertex[] survivors = new Vertex[blocsAsCollection.size()];
         int index = 0;
-        System.out.println("\n" + "Decimating...");
+        //System.out.println("\n" + "Decimating...");
         for (Bloc b : blocsAsCollection) {
             double minRes = Double.POSITIVE_INFINITY;
             for (Vertex v : b.vertices) {
@@ -58,7 +59,7 @@ class HTAP
             }
             survivors[index] = b.surv;
             index++;
-            System.out.println("node " + b.surv + " survived bloc " + b);
+            //System.out.println("node " + b.surv + " survived bloc " + b);
         }
         return survivors;
     }
@@ -67,11 +68,10 @@ class HTAP
     //Determines which Voronoi region each node belongs to
     //given a set of points which are at the center of the regions
     {
-        System.out.println("\n" + "Determining Voronoi Regions...");
+        //System.out.println("\n" + "Determining Voronoi Regions...");
         LinkedList<Vertex> queue = new LinkedList<Vertex>();
         for (Vertex v : survivors) {
             v.vRegion = v;
-            v.verticesInVR.add(v);
             queue.add(v);
         }
         while(!queue.isEmpty()) {
@@ -87,7 +87,7 @@ class HTAP
                 Vertex child = children.poll();
                 v.verticesInVR.add(child);
                 child.vRegion = v.vRegion;
-                System.out.println("node " + child + " assigned to VR " + v.vRegion);
+                //System.out.println("node " + child + " assigned to VR " + v.vRegion);
                 queue.add(child);
             }
         }
@@ -96,7 +96,7 @@ class HTAP
     public static void link(Vertex[] survivors)
     //Places edges between survivor nodes whose voronoi regions are connected
     {
-        System.out.println("\n" + "Placing edges between survivor nodes...");
+        //System.out.println("\n" + "Placing edges between survivor nodes...");
         for (int i = 0; i < survivors.length ; i++) {
             for (int j = i+1; j < survivors.length; j++) {
                 Vertex u = survivors[i];
@@ -106,7 +106,7 @@ class HTAP
                     Edge e2 = new Edge(v, u, 0);
                     if (!u.hasNeighbor(e1)) { u.newNeighbors.add(e1); }
                     if (!v.hasNeighbor(e2)) { v.newNeighbors.add(e2); }
-                    System.out.println("Added an edge between " + u + " and " + v);
+                    //System.out.println("Added an edge between " + u + " and " + v);
                 }
             }
         }
@@ -115,7 +115,7 @@ class HTAP
     public static void setWeights(Vertex[] survivors)
     //Sets the weights of the newly placed edges between survivor nodes
     {
-        System.out.println("\n" + "Setting edge weights...");
+        //System.out.println("\n" + "Setting edge weights...");
         for (int i = 0; i < survivors.length ; i++) {
             for (int j = i+1; j < survivors.length ; j++) {
                 Vertex u = survivors[i];
@@ -131,8 +131,8 @@ class HTAP
                     double distUToV = Dijkstra.minDist(graphAsArray, u, v);
                     u.setNeighborWeight(v, distUToV);
                     v.setNeighborWeight(u, distUToV);
-                    System.out.println("Set weight between " + u + " and " + v + ": "
-                        + String.format("%.3f", distUToV));
+                    //System.out.println("Set weight between " + u + " and " + v + ": "
+                        //+ String.format("%.3f", distUToV));
                 }
             }
         }
@@ -144,9 +144,23 @@ class HTAP
         for (Vertex v : survivors) { v.loc = v.bloc; }
     }
     
+    public static void makePyramid(Vertex[] graph, int blocSize, int goal) {
+        int size = graph.length*graph.length;
+        while(size > goal) {
+            Hashtable<Point,Bloc> blocs = bloc(graph,blocSize);
+            size = blocs.size();
+            Vertex[] survivors = decimate(blocs);
+            voronoi(survivors);
+            link(survivors);
+            setWeights(survivors);
+            calibrateLocations(survivors);
+            graph = survivors;
+        }
+    }
+    
     public static void main(String[] args)
     {
-        int size = 16;
+        int size = Integer.parseInt(args[0]);
         Vertex[] graph = new Vertex[size*size];
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -161,38 +175,90 @@ class HTAP
             Random rng = new Random();
             for (int offset : cardinalDirections) {
                 int nIndex = index+offset;
-                if (rng.nextBoolean() && nIndex >= 0 && nIndex < size*size
+                if ((rng.nextBoolean() || rng.nextBoolean())
+                    && nIndex >= 0 && nIndex < size*size
                     && (nIndex/size == index/size || nIndex%size == index%size)) {
                     Vertex u = graph[nIndex];
-                    Edge e1 = new Edge(v, u, rng.nextDouble());
-                    Edge e2 = new Edge(u, v, e1.weight);
-                    if (!v.connected(u)) { v.neighbors.add(e1); }
-                    if (!u.connected(v)) { u.neighbors.add(e2); }
+                    double weight = rng.nextDouble();
+                    if (!v.connected(u)) {
+                        Edge e1 = new Edge(v, u, weight);
+                        v.neighbors.add(e1);
+                    }
+                    if (!u.connected(v)) {
+                        Edge e2 = new Edge(u, v, weight);
+                        u.neighbors.add(e2);
+                    }
                 }
             }
         }
-
-        int numberOfBlocs = size*size;
-        printGraph(graph);
-        while(numberOfBlocs > 4) {
-            Hashtable<Point,Bloc> blocs = bloc(graph,2);
-            numberOfBlocs = blocs.size();
-            Vertex[] survivors = decimate(blocs);
-            voronoi(survivors);
-            link(survivors);
-            setWeights(survivors);
-            calibrateLocations(survivors);
-            graph = survivors;
+        Vertex source = graph[0];
+        Vertex target = graph[size*size-1];
+        
+        //Dijkstra
+        long startTimeD = System.nanoTime();
+        double pathLength = Dijkstra.minDist(graph,source,target);
+        ArrayList<Vertex> path = Dijkstra.getShortestPathTo(target);
+        long endTimeD = System.nanoTime();
+        long durationD = endTimeD - startTimeD;
+        
+        System.out.println("Dijkstra took " + durationD/1000000 + " ms");
+        System.out.println("Path length: " + pathLength);
+        System.out.println("Path: " + path);
+        
+        //HTAP
+        long startTimeH = System.nanoTime();
+        makePyramid(graph, 2, 4);
+        Stack<Vertex> tempTargets = new Stack<Vertex>();
+        Stack<Vertex> tempSources = new Stack<Vertex>();
+        while (!Arrays.asList(graph).contains(target)
+                || !Arrays.asList(graph).contains(source)) {
+            tempTargets.push(target);
+            tempSources.push(source);
+            target = target.vRegion;
+            source = source.vRegion;
         }
-        printGraph(graph);
+        double pathLengthH = 0.0;
+        ArrayList<Vertex> pathAtThisLayer = new ArrayList<Vertex>();
+        while (!tempTargets.empty()) {
+            pathLengthH = Dijkstra.minDist(graph,source,target);
+            pathAtThisLayer = Dijkstra.getShortestPathTo(target);
+            
+            ArrayList<Vertex> newGraph = new ArrayList<Vertex>();
+            for (Vertex v : pathAtThisLayer) {
+                for (Vertex u : v.verticesInVR) {
+                    newGraph.add(u);
+                }
+            }
+            graph = newGraph.toArray(graph);
+            source = tempSources.pop();
+            target = tempTargets.pop();
+            long checkTime = System.nanoTime();
+            if (checkTime-startTimeH > 50000000) { break; }
+        }
+        pathLengthH = Dijkstra.minDist(graph,source,target);
+        pathAtThisLayer = Dijkstra.getShortestPathTo(target);
+            
+        long endTimeH = System.nanoTime();
+        long durationH = endTimeH - startTimeH;
+        
+        System.out.println("HTAP took " + durationH/1000000 + " ms");
+        System.out.println("Path length: " + pathLengthH);
+        System.out.println("Path: " + pathAtThisLayer);
     }
     
     public static void printGraph(Vertex[] graph) {
         System.out.println("\n Displaying graph...");
         System.out.println("Vertices: " + Arrays.asList(graph));
+        System.out.println("Voronoi Regions: ");
+        for (Vertex v : graph) {
+            System.out.print(v + " : ");
+            for (Vertex u : v.verticesInVR) { System.out.print(u + ","); }
+            System.out.println("");
+        }
         System.out.println("Edges: ");
         for (Vertex v : graph) {
-            for (Edge e : v.neighbors) { System.out.println(e); }
+            for (Edge e : v.neighbors) { System.out.print(e + ","); }
+            System.out.println("");
         }
     }        
 }
@@ -269,7 +335,7 @@ class Edge
     }
     
     public String toString() {
-        return source.toString() + "--[ " + String.format("%.3f", weight) + " ]-->" + target.toString();
+        return source.toString() + "-[" + String.format("%.3f", weight) + "]->" + target.toString();
     }
 }
 
@@ -321,6 +387,15 @@ class Dijkstra
             }
         }
         return minDist;
+    }
+
+    public static ArrayList<Vertex> getShortestPathTo(Vertex target)
+    {
+        ArrayList<Vertex> path = new ArrayList<Vertex>();
+        for (Vertex v = target; v != null; v = v.prev)
+            path.add(v);
+        Collections.reverse(path);
+        return path;
     }
 }
         
