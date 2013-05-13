@@ -169,10 +169,10 @@ class HTAP
             }
         }
 
+        Random rng = new Random();
         int[] cardinalDirections = { 1, -1, size, -size };
         for (int index = 0; index < size*size; index++) {
             Vertex v = graph[index];
-            Random rng = new Random();
             for (int offset : cardinalDirections) {
                 int nIndex = index+offset;
                 if ((rng.nextBoolean() || rng.nextBoolean())
@@ -191,59 +191,75 @@ class HTAP
                 }
             }
         }
-        Vertex source = graph[0];
-        Vertex target = graph[size*size-1];
+        int iterations = Integer.parseInt(args[1]);
+        Vertex[] sources = new Vertex[iterations];
+        Vertex[] targets = new Vertex[iterations];
+        for (int i = 0; i < iterations; i++) {
+            sources[i] = graph[rng.nextInt(size*size)];
+            targets[i] = graph[rng.nextInt(size*size)];
+        }
         
         //Dijkstra
-        long startTimeD = System.nanoTime();
-        double pathLength = Dijkstra.minDist(graph,source,target);
-        ArrayList<Vertex> path = Dijkstra.getShortestPathTo(target);
-        long endTimeD = System.nanoTime();
-        long durationD = endTimeD - startTimeD;
+        long totalTimeD = 0;
+        for (int i = 0; i < iterations; i++) {
+            long startTimeD = System.nanoTime();
+            double pathLength = Dijkstra.minDist(graph,sources[i],targets[i]);
+            //ArrayList<Vertex> path = Dijkstra.getShortestPathTo(target);
+            long endTimeD = System.nanoTime();
+            long durationD = endTimeD - startTimeD;
+            totalTimeD += durationD;
+            
+            System.out.println("Dijkstra took " + durationD/1000000 + " ms");
+            System.out.println("Path length: " + pathLength);
+            //System.out.println("Path: " + path);
+        }
+        System.out.println("Total time: " + totalTimeD/1000000 + "\n");
         
-        System.out.println("Dijkstra took " + durationD/1000000 + " ms");
-        System.out.println("Path length: " + pathLength);
-        System.out.println("Path: " + path);
+        makePyramid(graph, 2, 4);
         
         //HTAP
-        long startTimeH = System.nanoTime();
-        makePyramid(graph, 2, 4);
-        Stack<Vertex> tempTargets = new Stack<Vertex>();
-        Stack<Vertex> tempSources = new Stack<Vertex>();
-        while (!Arrays.asList(graph).contains(target)
-                || !Arrays.asList(graph).contains(source)) {
-            tempTargets.push(target);
-            tempSources.push(source);
-            target = target.vRegion;
-            source = source.vRegion;
-        }
-        double pathLengthH = 0.0;
-        ArrayList<Vertex> pathAtThisLayer = new ArrayList<Vertex>();
-        while (!tempTargets.empty()) {
-            pathLengthH = Dijkstra.minDist(graph,source,target);
-            pathAtThisLayer = Dijkstra.getShortestPathTo(target);
-            
-            ArrayList<Vertex> newGraph = new ArrayList<Vertex>();
-            for (Vertex v : pathAtThisLayer) {
-                for (Vertex u : v.verticesInVR) {
-                    newGraph.add(u);
-                }
+        long totalTimeH = 0;
+        for (int i = 0; i < iterations; i++) {
+            long startTimeH = System.nanoTime();
+            Vertex target = targets[i];
+            Vertex source = sources[i];
+            Stack<Vertex> tempTargets = new Stack<Vertex>();
+            Stack<Vertex> tempSources = new Stack<Vertex>();
+            while (!Arrays.asList(graph).contains(target)
+                    || !Arrays.asList(graph).contains(source)) {
+                tempTargets.push(target);
+                tempSources.push(source);
+                target = target.vRegion;
+                source = source.vRegion;
             }
-            graph = newGraph.toArray(graph);
-            source = tempSources.pop();
-            target = tempTargets.pop();
-            long checkTime = System.nanoTime();
-            if (checkTime-startTimeH > 50000000) { break; }
-        }
-        pathLengthH = Dijkstra.minDist(graph,source,target);
-        pathAtThisLayer = Dijkstra.getShortestPathTo(target);
+            double pathLengthH = 0.0;
+            ArrayList<Vertex> pathAtThisLayer = new ArrayList<Vertex>();
+            while (!tempTargets.empty()) {
+                pathLengthH = Dijkstra.minDist(graph,source,target);
+                pathAtThisLayer = Dijkstra.getShortestPathTo(target);
+                
+                ArrayList<Vertex> newGraph = new ArrayList<Vertex>();
+                for (Vertex v : pathAtThisLayer) {
+                    for (Vertex u : v.verticesInVR) {
+                        newGraph.add(u);
+                    }
+                }
+                graph = newGraph.toArray(graph);
+                source = tempSources.pop();
+                target = tempTargets.pop();
+            }
+            pathLengthH = Dijkstra.minDist(graph,source,target);
+            //pathAtThisLayer = Dijkstra.getShortestPathTo(target);
+                
+            long endTimeH = System.nanoTime();
+            long durationH = endTimeH - startTimeH;
+            totalTimeH += durationH;
             
-        long endTimeH = System.nanoTime();
-        long durationH = endTimeH - startTimeH;
-        
-        System.out.println("HTAP took " + durationH/1000000 + " ms");
-        System.out.println("Path length: " + pathLengthH);
-        System.out.println("Path: " + pathAtThisLayer);
+            System.out.println("HTAP took " + durationH/1000000 + " ms");
+            System.out.println("Path length: " + pathLengthH);
+            //System.out.println("Path: " + pathAtThisLayer);
+        }
+        System.out.println("Total time: " + totalTimeH/1000000 + "\n");
     }
     
     public static void printGraph(Vertex[] graph) {
