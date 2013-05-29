@@ -2,7 +2,6 @@ import java.util.PriorityQueue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Hashtable;
 import java.awt.Point;
 import java.util.LinkedList;
 import java.util.Arrays;
@@ -11,398 +10,278 @@ import java.util.Stack;
 
 class HTAP
 {
-    public static Hashtable<Point,Bloc> bloc(Vertex[] vertices, int precision)
-    //Assigns each node a bloc and inserts the node into that bloc
-    {
-        //System.out.println("\n" + "Assigning blocs...");
-        Hashtable<Point,Bloc> blocs = new Hashtable<Point,Bloc>();
-        for (Vertex v : vertices) {
-            int x = v.loc.x;
-            int y = v.loc.y;
-            int blocX = x/precision;
-            int blocY = y/precision;
-            Point key = new Point(blocX, blocY);
-            v.bloc = key;
-            Bloc currentBloc;
-            if (blocs.get(key) == null) {
-                currentBloc = new Bloc(blocX,blocY);
-            } else {
-                currentBloc = blocs.get(key);
-            }
-            currentBloc.add(v);
-            blocs.put(key, currentBloc);
-            //System.out.println("node " + v + " assigned to bloc " + currentBloc);
-        }
-        //System.out.println("Number of blocs formed: " + blocs.size());
-        return blocs;
+    public static Vertex[] original;
+    static int layer = 0;
+
+    public static int squareRoot(int number) {
+        return ((Double)Math.sqrt(number)).intValue();
     }
     
-    public static Vertex[] decimate(Hashtable<Point,Bloc> blocs)
-    //Decimates a bloc by selecting a sole survivor node
-    {
-        Collection<Bloc> blocsAsCollection = blocs.values();
-        Vertex[] survivors = new Vertex[blocsAsCollection.size()];
-        int index = 0;
-        //System.out.println("\n" + "Decimating...");
-        for (Bloc b : blocsAsCollection) {
-            double minRes = Double.POSITIVE_INFINITY;
-            for (Vertex v : b.vertices) {
-                double res = 0;
-                for (Edge e : v.neighbors) {
-                    res += 1/e.weight;
-                }
-                res = 1/res;
-                if (res < minRes) {
-                    minRes = res;
-                    b.surv = v;
-                }
+    public static void printGraph(Vertex[] graph) {
+        int size = squareRoot(graph.length);
+        System.out.println("\n Displaying graph...");
+        for (int r = 0; r < size; r++) {
+            for (int c = 0; c < size; c++) {
+                Vertex v = graph[r*size+c];
+                System.out.print(v);
             }
-            survivors[index] = b.surv;
-            index++;
-            //System.out.println("node " + b.surv + " survived bloc " + b);
+            System.out.print("\n");
         }
-        return survivors;
     }
     
-    public static void voronoi(Vertex[] survivors)
-    //Determines which Voronoi region each node belongs to
-    //given a set of points which are at the center of the regions
-    {
-        //System.out.println("\n" + "Determining Voronoi Regions...");
+    public static void printGraph(Vertex[] graph, ArrayList<Vertex> path) {
+        int size = squareRoot(graph.length);
+        System.out.println("\n Displaying graph...");
+        for (int r = 0; r < size; r++) {
+            for (int c = 0; c < size; c++) {
+                Vertex v = graph[r*size+c];
+                if (path.contains(v)) {
+                    System.out.print(v.inPath());
+                } else {
+                    System.out.print(v);
+                }
+            }
+            System.out.print("\n");
+        }
+    }
+        
+    public static void main(String[] args) {
+        int size = 27;
+        int connectivity = 4;
+        int iterations = Integer.parseInt(args[0]);
+        original = makeGraph(size, connectivity);
+        Random rng = new Random();
+        
+        //Dijkstra
+        long timerDijkstra = 0;
+        ArrayList<Vertex> path = new ArrayList<Vertex>();
+        for (int i = 0; i < iterations; i++) {
+            long startDijkstra = System.nanoTime();
+            Vertex source = original[rng.nextInt(size*size)];
+            Vertex target = original[rng.nextInt(size*size)];
+            Dijkstra.getPathsFrom(original, source);
+            path = Dijkstra.getShortestPathTo(target);
+            long endDijkstra = System.nanoTime();
+            timerDijkstra += endDijkstra-startDijkstra;
+        }
+        System.out.println("Dijkstra took: " + timerDijkstra/1000000);
+        printGraph(original, path);
+        
+        Vertex[] dummy = original;
+        for (int i = 0; i < 2; i++) {
+            Vertex[] newLayer = makeNewLayer(dummy);
+            dummy = newLayer;
+        }
+    }
+    
+    public static Vertex[] makeNewLayer(Vertex[] graph) {
+        int size = squareRoot(graph.length);
+        int newSize = ((Double)Math.ceil(size/3.0)).intValue();
+        
+        //Decimate
+        Vertex[] newGraph = new Vertex[newSize*newSize];
+        Vertex[] survivors = new Vertex[newSize*newSize];
+        for (int r = 0; r < size; r++) {
+            for (int c = 0; c < size; c++) {
+                int index = r*size+c;
+                Vertex v = graph[index];
+                int bR = r/3;
+                int bC = c/3;
+                int blocIndex = bR*newSize + bC;
+                if (newGraph[blocIndex] == null) {
+                    newGraph[blocIndex] = new Vertex(v);
+                    survivors[blocIndex] = v;
+                } else if (v.getResistance() < newGraph[blocIndex].getResistance()) {
+                    newGraph[blocIndex] = new Vertex(v);
+                    survivors[blocIndex] = v;
+                }
+            }
+        }
+        
+        //Voronoi
         LinkedList<Vertex> queue = new LinkedList<Vertex>();
-        for (Vertex v : survivors) {
-            v.vRegion = v;
-            queue.add(v);
-        }
+        for (int index = 0; index < survivors.length; index++) {
+            survivors[index].immRep = newGraph[index];
+            newGraph[index].voronoiRegion = new ArrayList<Vertex>();
+            newGraph[index].voronoiRegion.add(survivors[index]);
+            queue.add(survivors[index]);
+        }        
         while(!queue.isEmpty()) {
             Vertex v = queue.poll();
             LinkedList<Vertex> children = new LinkedList<Vertex>();
             for (Edge e : v.neighbors) {
-                Vertex c = e.target;
-                if (c.vRegion==null) {
-                    children.add(c);
+                if (e.target.immRep==null) {
+                    children.add(e.target);
                 }
             }
             while(!children.isEmpty()) {
                 Vertex child = children.poll();
-                v.verticesInVR.add(child);
-                child.vRegion = v.vRegion;
-                //System.out.println("node " + child + " assigned to VR " + v.vRegion);
+                child.immRep = v.immRep;
+                v.immRep.voronoiRegion.add(child);
                 queue.add(child);
             }
         }
-    }
-    
-    public static void link(Vertex[] survivors)
-    //Places edges between survivor nodes whose voronoi regions are connected
-    {
-        //System.out.println("\n" + "Placing edges between survivor nodes...");
-        for (int i = 0; i < survivors.length ; i++) {
-            for (int j = i+1; j < survivors.length; j++) {
-                Vertex u = survivors[i];
-                Vertex v = survivors[j];
-                if (u.vConnected(v) || v.vConnected(u)) {
-                    Edge e1 = new Edge(u, v, 0);
-                    Edge e2 = new Edge(v, u, 0);
-                    if (!u.hasNeighbor(e1)) { u.newNeighbors.add(e1); }
-                    if (!v.hasNeighbor(e2)) { v.newNeighbors.add(e2); }
-                    //System.out.println("Added an edge between " + u + " and " + v);
+        for (Vertex v : original) {
+            if (v.allReps.isEmpty()) {
+                v.allReps.add(v.immRep);
+            } else {
+                v.allReps.add(v.allReps.get(layer).immRep);
+            }
+        }
+        
+        //Link
+        for (Vertex u : newGraph) {
+            for (Vertex v : newGraph) {
+                if (u.loc == v.loc) { continue; }
+                ArrayList<Vertex> subGraph = new ArrayList<Vertex>();
+                for (Vertex child : u.voronoiRegion) {
+                    subGraph.add(child);
+                }
+                for (Vertex child : v.voronoiRegion) {
+                    subGraph.add(child);
+                }
+                Vertex[] graphAsArray = new Vertex[subGraph.size()];
+                graphAsArray = subGraph.toArray(graphAsArray);
+                Dijkstra.getPathsFrom(graphAsArray, u);
+                if (v.minDistance != Double.POSITIVE_INFINITY) {
+                    Edge e = new Edge(u, v, v.minDistance);
+                    u.neighbors.add(e);
                 }
             }
         }
+        
+        return newGraph;
     }
     
-    public static void setWeights(Vertex[] survivors)
-    //Sets the weights of the newly placed edges between survivor nodes
-    {
-        //System.out.println("\n" + "Setting edge weights...");
-        for (int i = 0; i < survivors.length ; i++) {
-            for (int j = i+1; j < survivors.length ; j++) {
-                Vertex u = survivors[i];
-                Vertex v = survivors[j];
-                if (u.vConnected(v) || v.vConnected(u)) {
-                    ArrayList<Vertex> graph = new ArrayList<Vertex>();
-                    for (Vertex child : u.verticesInVR) { graph.add(child); }
-                    for (Vertex child : v.verticesInVR) { graph.add(child); }
-                    graph.add(u);
-                    graph.add(v);
-                    Vertex[] graphAsArray = new Vertex[graph.size()];
-                    graphAsArray = graph.toArray(graphAsArray);
-                    double distUToV = Dijkstra.minDist(graphAsArray, u, v);
-                    u.setNeighborWeight(v, distUToV);
-                    v.setNeighborWeight(u, distUToV);
-                    //System.out.println("Set weight between " + u + " and " + v + ": "
-                        //+ String.format("%.3f", distUToV));
+    public static Vertex[] makeGraph(int size, int connectivity) {
+        if (!(connectivity == 4 || connectivity == 8)) {
+            System.out.println("connectivity must be 4 or 8");
+            return null;
+        } else {
+            Vertex[] vertices = new Vertex[size*size];
+            Random rng = new Random();
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) {
+                    vertices[i*size+j] = new Vertex(i, j, rng.nextDouble());
                 }
             }
-        }
-
-        for (Vertex v : survivors) { v.neighbors = v.newNeighbors; }
-    }
-    
-    public static void calibrateLocations(Vertex[] survivors) {
-        for (Vertex v : survivors) { v.loc = v.bloc; }
-    }
-    
-    public static void makePyramid(Vertex[] graph, int blocSize, int goal) {
-        int size = graph.length*graph.length;
-        while(size > goal) {
-            Hashtable<Point,Bloc> blocs = bloc(graph,blocSize);
-            size = blocs.size();
-            Vertex[] survivors = decimate(blocs);
-            voronoi(survivors);
-            link(survivors);
-            setWeights(survivors);
-            calibrateLocations(survivors);
-            graph = survivors;
-        }
-    }
-    
-    public static void main(String[] args)
-    {
-        int size = Integer.parseInt(args[0]);
-        Vertex[] graph = new Vertex[size*size];
-        for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                String name = "("+Integer.toString(i)+","+Integer.toString(j)+")";
-                graph[i*size+j] = new Vertex(name, i, j);
-            }
-        }
-
-        Random rng = new Random();
-        int[] cardinalDirections = { 1, -1, size, -size };
-        for (int index = 0; index < size*size; index++) {
-            Vertex v = graph[index];
-            for (int offset : cardinalDirections) {
-                int nIndex = index+offset;
-                if ((rng.nextBoolean() || rng.nextBoolean())
-                    && nIndex >= 0 && nIndex < size*size
-                    && (nIndex/size == index/size || nIndex%size == index%size)) {
-                    Vertex u = graph[nIndex];
-                    double weight = rng.nextDouble();
-                    if (!v.connected(u)) {
-                        Edge e1 = new Edge(v, u, weight);
-                        v.neighbors.add(e1);
-                    }
-                    if (!u.connected(v)) {
-                        Edge e2 = new Edge(u, v, weight);
-                        u.neighbors.add(e2);
+            Point[] cardinalDirections = {  new Point(1,0), new Point(-1,0),
+                                            new Point(0,1), new Point(0, -1),
+                                            new Point(1,1), new Point(-1,1),
+                                            new Point(1,-1), new Point(-1,-1) };
+            for (int r = 0; r < size; r++) {
+                for (int c = 0; c < size; c++) {
+                    Vertex v = vertices[r*size + c];
+                    for (int i = 0; i < connectivity; i++) {
+                        Point offset = cardinalDirections[i];
+                        int nR = r+offset.x; 
+                        int cR = c+offset.y;
+                        if (nR >= 0 && nR < size && cR >= 0 && cR < size) {
+                            int nIndex = nR*size+cR;
+                            Vertex u = vertices[nIndex];
+                            Edge e = new Edge(v, u, v.getCost(u));
+                            v.neighbors.add(e);
+                        }
                     }
                 }
             }
+            return vertices;
         }
-        int iterations = Integer.parseInt(args[1]);
-        Vertex[] sources = new Vertex[iterations];
-        Vertex[] targets = new Vertex[iterations];
-        for (int i = 0; i < iterations; i++) {
-            sources[i] = graph[rng.nextInt(size*size)];
-            targets[i] = graph[rng.nextInt(size*size)];
-        }
-        
-        //Dijkstra
-        long totalTimeD = 0;
-        for (int i = 0; i < iterations; i++) {
-            long startTimeD = System.nanoTime();
-            double pathLength = Dijkstra.minDist(graph,sources[i],targets[i]);
-            //ArrayList<Vertex> path = Dijkstra.getShortestPathTo(target);
-            long endTimeD = System.nanoTime();
-            long durationD = endTimeD - startTimeD;
-            totalTimeD += durationD;
-            
-            System.out.println("Dijkstra took " + durationD/1000000 + " ms");
-            System.out.println("Path length: " + pathLength);
-            //System.out.println("Path: " + path);
-        }
-        System.out.println("Total time: " + totalTimeD/1000000 + "\n");
-        
-        makePyramid(graph, 2, 4);
-        
-        //HTAP
-        long totalTimeH = 0;
-        for (int i = 0; i < iterations; i++) {
-            long startTimeH = System.nanoTime();
-            Vertex target = targets[i];
-            Vertex source = sources[i];
-            Stack<Vertex> tempTargets = new Stack<Vertex>();
-            Stack<Vertex> tempSources = new Stack<Vertex>();
-            while (!Arrays.asList(graph).contains(target)
-                    || !Arrays.asList(graph).contains(source)) {
-                tempTargets.push(target);
-                tempSources.push(source);
-                target = target.vRegion;
-                source = source.vRegion;
-            }
-            double pathLengthH = 0.0;
-            ArrayList<Vertex> pathAtThisLayer = new ArrayList<Vertex>();
-            while (!tempTargets.empty()) {
-                pathLengthH = Dijkstra.minDist(graph,source,target);
-                pathAtThisLayer = Dijkstra.getShortestPathTo(target);
-                
-                ArrayList<Vertex> newGraph = new ArrayList<Vertex>();
-                for (Vertex v : pathAtThisLayer) {
-                    for (Vertex u : v.verticesInVR) {
-                        newGraph.add(u);
-                    }
-                }
-                graph = newGraph.toArray(graph);
-                source = tempSources.pop();
-                target = tempTargets.pop();
-            }
-            pathLengthH = Dijkstra.minDist(graph,source,target);
-            //pathAtThisLayer = Dijkstra.getShortestPathTo(target);
-                
-            long endTimeH = System.nanoTime();
-            long durationH = endTimeH - startTimeH;
-            totalTimeH += durationH;
-            
-            System.out.println("HTAP took " + durationH/1000000 + " ms");
-            System.out.println("Path length: " + pathLengthH);
-            //System.out.println("Path: " + pathAtThisLayer);
-        }
-        System.out.println("Total time: " + totalTimeH/1000000 + "\n");
     }
-    
-    public static void printGraph(Vertex[] graph) {
-        System.out.println("\n Displaying graph...");
-        System.out.println("Vertices: " + Arrays.asList(graph));
-        System.out.println("Voronoi Regions: ");
-        for (Vertex v : graph) {
-            System.out.print(v + " : ");
-            for (Vertex u : v.verticesInVR) { System.out.print(u + ","); }
-            System.out.println("");
-        }
-        System.out.println("Edges: ");
-        for (Vertex v : graph) {
-            for (Edge e : v.neighbors) { System.out.print(e + ","); }
-            System.out.println("");
-        }
-    }        
 }
 
-class Vertex implements Comparable<Vertex>
-{
-    public final String name;
-    public ArrayList<Edge> neighbors;
-    public ArrayList<Edge> newNeighbors;
+class Vertex implements Comparable<Vertex> {
+    public Point loc;
+    public double weight;
+    public ArrayList<Edge> neighbors = new ArrayList<Edge>();
+    
+    public Vertex immRep = null;
+    public ArrayList<Vertex> allReps = new ArrayList<Vertex>();
+    public ArrayList<Vertex> voronoiRegion;
+    double resistance = 0.0;
+    
+    public Vertex(int argX, int argY, double argWeight) {
+        loc = new Point(argX, argY);
+        weight = argWeight;
+    }
+    
+    public Vertex(Vertex original) {
+        loc = new Point(original.loc.x, original.loc.y);
+        weight = original.weight;
+    }
+    
+    public double getResistance() {
+        if (resistance == 0.0) {
+            double denom = 0;
+            for (Edge e : neighbors) {
+                denom += 1.0/e.weight;
+            }
+            resistance = 1.0/denom;
+        }
+        return resistance;
+    }
+    
+    public double getCost(Vertex neighbor) {
+        return (weight+neighbor.weight)/2;
+    }
+    
+    public String getLoc() {
+        return loc.x+","+loc.y;
+    }
+    
+    public String toString() {
+        if (weight <= 0.333) { return "-"; }
+        else if (weight > 0.333 && weight <= 0.666) { return "="; }
+        else { return "#"; }
+    } 
+    
+    public String inPath() {
+        if (weight <= 0.333) { return "."; }
+        else if (weight > 0.333 && weight <= 0.666) { return "o"; }
+        else { return "O"; }
+    }
+    
     public double minDistance = Double.POSITIVE_INFINITY;
     public Vertex prev;
-    public Point loc;
-    public Point bloc;
-    public Vertex vRegion;
-    public ArrayList<Vertex> verticesInVR;
     
-    public Vertex(String argName, int argX, int argY) {
-        name = argName;
-        loc = new Point(argX, argY);
-        neighbors = new ArrayList<Edge>();
-        newNeighbors = new ArrayList<Edge>();
-        verticesInVR = new ArrayList<Vertex>();
-    }
-    
-    public String toString() { return name; }
-    public int compareTo(Vertex v) { return Double.compare(minDistance, v.minDistance); }
-    
-    public boolean connected(Vertex v) {
-        for (Edge e : neighbors) {
-            if (e.target.name == v.name) { return true; } }
-        return false;
-    }
-    
-    public boolean vConnected(Vertex v) {
-        for (Vertex u : verticesInVR) {
-            for (Vertex w : v.verticesInVR) {
-                if (u.connected(w)) { return true; } } }
-        return false;
-    }
-        
-    public void setNeighborWeight(Vertex target, double weight) {
-        for (Edge e : newNeighbors) {
-            if (e.target.name == target.name) { e.weight = weight; }
-        }
-    }
-    
-    public boolean hasNeighbor(Edge e) {
-        for (Edge n : newNeighbors) {
-            if (e.equals(n)) { return true; }
-        }
-        return false;
+    public int compareTo(Vertex v) {
+        return Double.compare(minDistance, v.minDistance);
     }
 }
 
-class Edge
-{
-    public final Vertex source;
-    public final Vertex target;
-    public double weight;
+class Edge {
+    Vertex source;
+    Vertex target;
+    double weight;
     
     public Edge(Vertex argSource, Vertex argTarget, double argWeight) {
         source = argSource;
         target = argTarget;
         weight = argWeight;
     }
-    
-    public boolean equals(Edge e) {
-        if (source == e.source &&
-            target == e.target) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    
-    public String toString() {
-        return source.toString() + "-[" + String.format("%.3f", weight) + "]->" + target.toString();
-    }
-}
-
-class Bloc
-{
-    public ArrayList<Vertex> vertices = new ArrayList<Vertex>();
-    public Point loc;
-    public Vertex surv;
-    
-    public Bloc(int argX, int argY) {
-        loc = new Point(argX, argY);
-    }
-    
-    public void add(Vertex v) {
-        vertices.add(v);
-    }
-        
-    public String toString() {
-        return loc.x + ", " + loc.y;
-    }
 }
 
 class Dijkstra
 {
-    public static double minDist(Vertex[] graph, Vertex source, Vertex target)
-    {
-        for (Vertex v : graph) { v.minDistance = Double.POSITIVE_INFINITY; }
+    public static void getPathsFrom(Vertex[] graph, Vertex source) {
         source.minDistance = 0.0;
         PriorityQueue<Vertex> queue = new PriorityQueue<Vertex>();
-      	queue.add(source);
-        double minDist = Double.POSITIVE_INFINITY;
+        queue.add(source);
 
         while (!queue.isEmpty()) {
             Vertex u = queue.poll();
-            for (Edge e : u.neighbors)
-            {
+            for (Edge e : u.neighbors) {
                 Vertex v = e.target;
-                if (Arrays.asList(graph).contains(v)) {
-                    double weight = e.weight;
-                    double distanceThroughU = u.minDistance + weight;
-                    if (distanceThroughU < v.minDistance) {
-                        queue.remove(v);
-                        v.minDistance = distanceThroughU;
-                        if (v.name == target.name) { minDist = v.minDistance; }
-                        v.prev = u;
-                        queue.add(v);
-                    }
+                if (!Arrays.asList(graph).contains(v)) { continue; }
+                double distanceThroughU = u.minDistance + e.weight;
+                if (distanceThroughU < v.minDistance) {
+                    queue.remove(v);
+                    v.minDistance = distanceThroughU;
+                    v.prev = u;
+                    queue.add(v);
                 }
             }
         }
-        return minDist;
     }
 
     public static ArrayList<Vertex> getShortestPathTo(Vertex target)
@@ -410,8 +289,7 @@ class Dijkstra
         ArrayList<Vertex> path = new ArrayList<Vertex>();
         for (Vertex v = target; v != null; v = v.prev)
             path.add(v);
-        Collections.reverse(path);
+        //Collections.reverse(path);
         return path;
     }
 }
-        
