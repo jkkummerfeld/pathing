@@ -33,7 +33,6 @@ Boundaries_NonBlocking::fill_levels() {
 		ys *= y_rescale;
 		cost_maps[i] = new Cost_Map(cost_maps[i - 1], xs, ys);
 		if (cost_maps[i]->uniform) {
-///			printf("Enough maps at %d\n", i);
 			levels = i+1;
 			break;
 		}
@@ -46,10 +45,6 @@ Boundaries_NonBlocking::fill_levels() {
 	xs = 1;
 	ys = 1;
 	for (int i = 1; i < levels; i++) {
-///		unsigned short width = cost_maps[i]->width;
-///		unsigned short height = cost_maps[i]->height;
-///		xs *= x_rescale;
-///		ys *= y_rescale;
 		// Currently we store the entire map at every level - very memory inefficient!
 		// TODO: Shift to not storing interior vertices
 		path_maps[i] = new Path_Map(i, full_width + 1, full_height + 1, (full_width + 1) * (full_height + 1));
@@ -247,8 +242,6 @@ Boundaries_NonBlocking::heuristic(const Point &pos) {
 		}
 		delete coarse_locations[i];
 	}
-///	printf("%f for ", best);
-///	pos.print(stdout);
 	return best;
 }
 
@@ -280,8 +273,6 @@ Boundaries_NonBlocking::update(Point &next_pos, double g, Node* prev) {
 		next->h = heuristic(next_pos);
 		if (next->h != HUGE_VAL) {
 			next->f = next->g + next->h;
-///			printf("1 Push     ");
-///			next->print(stdout);
 			fringe.push(next);
 		}
 	}
@@ -290,8 +281,6 @@ Boundaries_NonBlocking::update(Point &next_pos, double g, Node* prev) {
 Node*
 Boundaries_NonBlocking::pop() {
 	Node* cur = fringe.pop();
-///	printf("Pop        ");
-///	cur->print(stdout);
 	cur->set_state(CLOSED);
 	expanded++;
 	if (cur->pos.level > 0) {
@@ -306,8 +295,6 @@ Boundaries_NonBlocking::pop() {
 						fringe.update(waiting->at(i));
 					} else if (waiting->at(i)->h != HUGE_VAL) {
 						waiting->at(i)->f = waiting->at(i)->g + waiting->at(i)->h;
-///						printf("2 Push     ");
-///						waiting->at(i)->print(stdout);
 						fringe.push(waiting->at(i));
 					}
 				}
@@ -330,8 +317,6 @@ Boundaries_NonBlocking::search() {
 		Node* node = get_node(cgoal);
 		node->prev = NULL;
 		node->set_state(GOAL);
-///		printf("Created goal:\n");
-///		node->print(stdout);
 
 		node = get_node(cstart);
 		node->g = 0;
@@ -339,10 +324,7 @@ Boundaries_NonBlocking::search() {
 		node->f = node->h;
 		node->prev = NULL;
 		node->set_state(START);
-/// 		printf("Created start:\n");
-///		node->print(stdout);
 		if (! node->h != HUGE_VAL) {
-///			printf("4 Pushed\n");
 			fringe.push(node);
 		}
 
@@ -366,8 +348,6 @@ Boundaries_NonBlocking::search() {
 			fprintf(stdout, "Node above has f-value lower than previously closed node (%.1lf < %.1lf)\n", cur->f, cur_f);
 		}
 		cur_f = cur->f;
-///		printf("Closed: ");
-///		cur->print(stdout);
 
 		if (cur == goal_node) {
 			do {
@@ -386,18 +366,6 @@ Boundaries_NonBlocking::search() {
 			}
 		}
 	}
-
-
-///	for (int i = 0; i < levels; i++) {
-///		printf("level %d:\n", i);
-///		printf("Map Costs\n");
-///		cost_maps[i]->print(stdout);
-///		printf("Path costs\n");
-///		path_maps[i]->print(stdout);
-///		printf("Waiting\n");
-///		dependencies[i]->print(stdout);
-///	}
-///	ans.print(stdout);
 
 	return ans;
 }
