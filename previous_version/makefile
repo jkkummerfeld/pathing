@@ -3,9 +3,13 @@ FLAGS=-Wall -W -Wextra -g -O3
 CC=g++
 search_objects=lib/manhattan.o lib/euclidean.o lib/octile.o lib/ucs.o lib/search.o lib/boundaries_non-blocking.o lib/boundaries_blocking.o lib/cucs_heuristic.o lib/corners_blocking.o lib/corners_non-blocking.o
 
-all: test bin/compare bin/check_accuracy bin/imba bin/benchmark bin/random_circular_threat bin/profile
+all: dirs test bin/compare bin/check_accuracy bin/imba bin/benchmark bin/random_circular_threat bin/profile
 
 test: bin/test_cost_map bin/test_heap bin/test_ucs bin/test_boundaries_blocking bin/test_path_map bin/test_cucs_heuristic bin/test_boundaries_non-blocking bin/test_corners_blocking bin/test_corners_non-blocking
+
+dirs:
+	if [ ! -d bin ] ; then mkdir bin ; fi
+	if [ ! -d lib ] ; then mkdir lib ; fi
 
 bin/check_accuracy: code/check_accuracy.cpp lib/heap.o lib/cost_map.o lib/node.o lib/path.o lib/point.o lib/path_map.o lib/dependency_map.o lib/unit.o $(search_objects)
 	$(CC) $(FLAGS) $^ -o $@
