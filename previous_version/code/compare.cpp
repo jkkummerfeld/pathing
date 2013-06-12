@@ -27,7 +27,7 @@ using namespace std;
 int
 main(int argc, char** argv) {
 	if (argc < 10) {
-		printf("Usage:\n%s <width> <height> <x_scal> <y_scale> <map_file> <start_x> <start_y> <goal_x> <goal_y>\n", argv[0]);
+		printf("Usage:\n%s <width> <height> <x_scal> <y_scale> <map_file> <start_x> <start_y> <goal_x> <goal_y> [levels] [coarse block size X] [coarse block size Y]\n", argv[0]);
 		return 0;
 	}
 
@@ -50,9 +50,12 @@ main(int argc, char** argv) {
 	sscanf(argv[7], "%u", &uval); start.y = uval;
 	sscanf(argv[8], "%u", &uval); goal.x = uval;
 	sscanf(argv[9], "%u", &uval); goal.y = uval;
-	sscanf(argv[10], "%d", &slevels);
-	sscanf(argv[11], "%d", &sxscale);
-	sscanf(argv[12], "%d", &syscale);
+	if (argc > 10)
+		sscanf(argv[10], "%d", &slevels);
+	if (argc > 11)
+		sscanf(argv[11], "%d", &sxscale);
+	if (argc > 12)
+		sscanf(argv[12], "%d", &syscale);
 ///	sscanf(argv[13], "%d", &player_num);
 
 ///	FILE* unit_info = fopen(argv[5], "r");
