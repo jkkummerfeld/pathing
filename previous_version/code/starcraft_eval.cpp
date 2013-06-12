@@ -53,102 +53,102 @@ main(int argc, char** argv) {
 	sscanf(argv[10], "%d", &slevels);
 	sscanf(argv[11], "%d", &sxscale);
 	sscanf(argv[12], "%d", &syscale);
-///	sscanf(argv[13], "%d", &player_num);
+	sscanf(argv[13], "%d", &player_num);
 
-///	FILE* unit_info = fopen(argv[5], "r");
+	FILE* unit_info = fopen(argv[5], "r");
 
-///	// read past the map data
-///	char c;
-///	char buf[1000];
-///	int index = 0;
-///	while ((c = getc(unit_info)) != '\n') {
-///		buf[index] = c;
-///		index++;
-///	}
-///	buf[index] = '\0';
-///	unsigned short full_width;
-///	unsigned short full_height;
-///	sscanf(buf, "%hu %hu", &full_width, &full_height);
-///	char* map_data = (char*) malloc(sizeof(char) * full_width * full_height);
-///	index = 0;
-///	for (unsigned int j = 0; j < full_height; j++) {
-///		for (unsigned int i = 0; i < full_width; i++) {
-///			map_data[index] = getc(unit_info);
-///			index += 1;
-///		}
-///		getc(unit_info);
-///	}
+	// read past the map data
+	char c;
+	char buf[1000];
+	int index = 0;
+	while ((c = getc(unit_info)) != '\n') {
+		buf[index] = c;
+		index++;
+	}
+	buf[index] = '\0';
+	unsigned short full_width;
+	unsigned short full_height;
+	sscanf(buf, "%hu %hu", &full_width, &full_height);
+	char* map_data = (char*) malloc(sizeof(char) * full_width * full_height);
+	index = 0;
+	for (unsigned int j = 0; j < full_height; j++) {
+		for (unsigned int i = 0; i < full_width; i++) {
+			map_data[index] = getc(unit_info);
+			index += 1;
+		}
+		getc(unit_info);
+	}
 
-///	// read unit positions, we want the last set, so read until we get it
-///	vector<Unit> units;
+	// read unit positions, we want the last set, so read until we get it
+	vector<Unit> units;
 
-///	int pp0 = 0;
-///	int pp1 = 0;
-///	while (true) {
-///		index = 0;
-///		while ((c = getc(unit_info)) != '\n') {
-///			if (c == EOF)
-///				break;
-///			buf[index] = c;
-///			index++;
-///		}
-///		if (c == EOF)
-///			break; // no more data
-///		buf[index] = '\0';
-///		unsigned int len_units = 0;
-///		int read = sscanf(buf, "%u", &len_units);
-///		if (read != 1)
-///			printf("Failed to read the number of units\n");
-///		vector<Unit> nunits;
-///		int p0 = 0;
-///		int p1 = 0;
-///		for (unsigned int i = 0; i < len_units; i++) {
-///			index = 0;
-///			while ((c = getc(unit_info)) != '\n') {
-///				if (c == EOF)
-///					break;
-///				buf[index] = c;
-///				index++;
-///			}
-///			buf[index] = '\0';
-///			if (index == 0) {
-///				len_units = i;
-///				break;
-///			}
-///			int player, range, damage, left, right, up, down, x, y;
-///			if (9 != sscanf(buf, "%d %d %d %d %d %d %d %d %d", &player, &range, &damage, &left, &right, &up, &down, &x, &y)) {
-///				fprintf(stderr, "Error reading unit info\n");
-///				return 0;
-///			}
-///			Unit u;
-///			u.pos.x = x;
-///			u.pos.y = y;
-///			u.player = player;
-///			if (player == 0)
-///				p0++;
-///			else if (player == 1)
-///				p1++;
-///			u.range = range;
-///			u.damage = damage;
-///			u.left = left;
-///			u.right = right;
-///			u.up = up;
-///			u.down = down;
-///			units.push_back(u);
-///		}
+	int pp0 = 0;
+	int pp1 = 0;
+	while (true) {
+		index = 0;
+		while ((c = getc(unit_info)) != '\n') {
+			if (c == EOF)
+				break;
+			buf[index] = c;
+			index++;
+		}
+		if (c == EOF)
+			break; // no more data
+		buf[index] = '\0';
+		unsigned int len_units = 0;
+		int read = sscanf(buf, "%u", &len_units);
+		if (read != 1)
+			printf("Failed to read the number of units\n");
+		vector<Unit> nunits;
+		int p0 = 0;
+		int p1 = 0;
+		for (unsigned int i = 0; i < len_units; i++) {
+			index = 0;
+			while ((c = getc(unit_info)) != '\n') {
+				if (c == EOF)
+					break;
+				buf[index] = c;
+				index++;
+			}
+			buf[index] = '\0';
+			if (index == 0) {
+				len_units = i;
+				break;
+			}
+			int player, range, damage, left, right, up, down, x, y;
+			if (9 != sscanf(buf, "%d %d %d %d %d %d %d %d %d", &player, &range, &damage, &left, &right, &up, &down, &x, &y)) {
+				fprintf(stderr, "Error reading unit info\n");
+				return 0;
+			}
+			Unit u;
+			u.pos.x = x;
+			u.pos.y = y;
+			u.player = player;
+			if (player == 0)
+				p0++;
+			else if (player == 1)
+				p1++;
+			u.range = range;
+			u.damage = damage;
+			u.left = left;
+			u.right = right;
+			u.up = up;
+			u.down = down;
+			units.push_back(u);
+		}
 
-///		if (p0 < 0.8*pp0 || p1 < 0.8*pp1)
-///			break; // tide of battle is turning
-///		units = nunits;
-///		pp0 = p0;
-///		pp1 = p1;
-///	}
+		if (p0 < 0.8*pp0 || p1 < 0.8*pp1)
+			break; // tide of battle is turning
+		units = nunits;
+		pp0 = p0;
+		pp1 = p1;
+	}
 
-///	fclose(unit_info);
+	fclose(unit_info);
 
-	Cost_Map map(argv[5], width, height, xscale, yscale);
-///	Cost_Map map(map_data, full_width, full_height);
-///	map.add_threat(units, player_num);
+///	Cost_Map map(argv[5], width, height, xscale, yscale);
+	Cost_Map map(map_data, full_width, full_height);
+	map.add_threat(units, player_num);
 	width = map.width;
 	height = map.height;
 ///	for (int x = 0; x < 4096; x += 400) {
