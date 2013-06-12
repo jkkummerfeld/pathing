@@ -46,32 +46,82 @@ class HTAP
     }
         
     public static void main(String[] args) {
-        int size = 27;
-        int connectivity = 4;
-        int iterations = Integer.parseInt(args[0]);
+        if (args.length != 3) {
+            System.out.println("usage:");
+            System.out.println("HTAP <size> <connectivity> <iterations>");
+            System.out.println("<size> is the length of 1 side of the square graph");
+            System.out.println("<connectivity> must be 4 or 8");
+            System.out.println("<iterations> is the number of searches performed");
+            return;
+        }
+        int size = Integer.parseInt(args[0]);
+        int connectivity = Integer.parseInt(args[1]);
+        int iterations = Integer.parseInt(args[2]);
         original = makeGraph(size, connectivity);
         Random rng = new Random();
+        
+        Vertex[] sources = new Vertex[iterations];
+        Vertex[] targets = new Vertex[iterations];
+        for (int i = 0; i < iterations; i++) {
+            sources[i] = original[rng.nextInt(size)];
+            targets[i] = original[size*size-rng.nextInt(size)-1];
+        }
         
         //Dijkstra
         long timerDijkstra = 0;
         ArrayList<Vertex> path = new ArrayList<Vertex>();
         for (int i = 0; i < iterations; i++) {
             long startDijkstra = System.nanoTime();
-            Vertex source = original[rng.nextInt(size*size)];
-            Vertex target = original[rng.nextInt(size*size)];
+            Vertex source = sources[i];
+            Vertex target = targets[i];
             Dijkstra.getPathsFrom(original, source);
             path = Dijkstra.getShortestPathTo(target);
             long endDijkstra = System.nanoTime();
             timerDijkstra += endDijkstra-startDijkstra;
+            //printGraph(original, path);
         }
         System.out.println("Dijkstra took: " + timerDijkstra/1000000);
-        printGraph(original, path);
         
+        //HTAP
+        long timerHTAP = 0;
+        long startPyramid = System.nanoTime();
         Vertex[] dummy = original;
+        ArrayList<Vertex[]> pyramid = new ArrayList<Vertex[]>();
+        pyramid.add(original);
         for (int i = 0; i < 2; i++) {
             Vertex[] newLayer = makeNewLayer(dummy);
+            pyramid.add(newLayer);
             dummy = newLayer;
         }
+        long endPyramid = System.nanoTime();
+        long timerPyramid = endPyramid-startPyramid;
+        
+        for (int i = 0; i < iterations; i++) {
+            long startHTAP = System.nanoTime();
+            Vertex source = sources[i];
+            Vertex target = targets[i];
+            Vertex[] corridor = pyramid.get(layer);
+            while (layer > 0) {
+                layer -= 1;
+                Dijkstra.getPathsFrom(corridor, source.allReps.get(layer));
+                path = Dijkstra.getShortestPathTo(target.allReps.get(layer));
+                ArrayList<Vertex> subgraph = new ArrayList<Vertex>();
+                for (Vertex v : path) {
+                    for (Vertex c : v.voronoiRegion) {
+                        subgraph.add(c);
+                    }
+                }
+                corridor = new Vertex[subgraph.size()];
+                corridor = subgraph.toArray(corridor);
+            }
+            Dijkstra.getPathsFrom(corridor, source);
+            path = Dijkstra.getShortestPathTo(target);
+            long endHTAP = System.nanoTime();
+            timerHTAP += endHTAP-startHTAP;
+            //printGraph(original, path);
+        }
+        System.out.println("HTAP took: " + timerHTAP/1000000);
+        System.out.println("Pyramid construction took: " + timerPyramid/1000000);
     }
     
     public static Vertex[] makeNewLayer(Vertex[] graph) {
@@ -125,13 +175,17 @@ class HTAP
             if (v.allReps.isEmpty()) {
                 v.allReps.add(v.immRep);
             } else {
-                v.allReps.add(v.allReps.get(layer).immRep);
+                Vertex newRep = v.allReps.get(layer-1).immRep;
+                v.allReps.add(newRep);
             }
         }
+        layer++;
         
         //Link
-        for (Vertex u : newGraph) {
-            for (Vertex v : newGraph) {
+        for (int index1 = 0; index1 < survivors.length; index1++) {
+            for (int index2 = 0; index2 < survivors.length; index2++) {
+                Vertex u = newGraph[index1];
+                Vertex v = newGraph[index2];
                 if (u.loc == v.loc) { continue; }
                 ArrayList<Vertex> subGraph = new ArrayList<Vertex>();
                 for (Vertex child : u.voronoiRegion) {
@@ -142,9 +196,9 @@ class HTAP
                 }
                 Vertex[] graphAsArray = new Vertex[subGraph.size()];
                 graphAsArray = subGraph.toArray(graphAsArray);
-                Dijkstra.getPathsFrom(graphAsArray, u);
-                if (v.minDistance != Double.POSITIVE_INFINITY) {
-                    Edge e = new Edge(u, v, v.minDistance);
+                Dijkstra.getPathsFrom(graphAsArray, survivors[index1]);
+                if (survivors[index2].minDistance != Double.POSITIVE_INFINITY) {
+                    Edge e = new Edge(u, v, survivors[index2].minDistance);
                     u.neighbors.add(e);
                 }
             }
@@ -226,7 +280,7 @@ class Vertex implements Comparable<Vertex> {
     }
     
     public String getLoc() {
-        return loc.x+","+loc.y;
+        return "("+loc.x+","+loc.y+")";
     }
     
     public String toString() {
@@ -252,7 +306,7 @@ class Vertex implements Comparable<Vertex> {
 class Edge {
     Vertex source;
     Vertex target;
-    double weight;
+    final double weight;
     
     public Edge(Vertex argSource, Vertex argTarget, double argWeight) {
         source = argSource;
@@ -261,9 +315,12 @@ class Edge {
     }
 }
 
-class Dijkstra
-{
+class Dijkstra {    
     public static void getPathsFrom(Vertex[] graph, Vertex source) {
+        for (Vertex v : graph) {
+            v.minDistance = Double.POSITIVE_INFINITY;
+            v.prev = null;
+        }
         source.minDistance = 0.0;
         PriorityQueue<Vertex> queue = new PriorityQueue<Vertex>();
         queue.add(source);
@@ -287,8 +344,11 @@ class Dijkstra
     public static ArrayList<Vertex> getShortestPathTo(Vertex target)
     {
         ArrayList<Vertex> path = new ArrayList<Vertex>();
-        for (Vertex v = target; v != null; v = v.prev)
-            path.add(v);
+        Vertex trace = target;
+        while (trace != null) {
+            path.add(trace);
+            trace = trace.prev;
+        }
         //Collections.reverse(path);
         return path;
     }
