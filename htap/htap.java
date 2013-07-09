@@ -38,7 +38,7 @@ class HTAP
                 if (path.contains(v)) {
                     System.out.print(v.inPath());
                 } else {
-                    System.out.print(v);
+                    System.out.print(" ");
                 }
             }
             System.out.print("\n");
