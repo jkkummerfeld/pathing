@@ -325,9 +325,9 @@ class Vertex implements Comparable<Vertex> {
     }
     
     public String toString() {
-        if (loc.x%4 == 0 && loc.y%5 == 0) { return "x"; }
-        else if (loc.x%4 != 0 && loc.y%5 != 0) { return " "; }
-        else if (loc.x%4 == 0) { return "-"; }
+        if (loc.x%Coarse.blockWidth == 0 && loc.y%Coarse.blockHeight == 0) { return "x"; }
+        else if (loc.x%Coarse.blockWidth != 0 && loc.y%Coarse.blockHeight != 0) { return " "; }
+        else if (loc.x%Coarse.blockWidth == 0) { return "-"; }
         else { return "|"; }
     }
     
@@ -494,5 +494,4 @@ class Corners {
     }
                 
 }
-        
-        
+
