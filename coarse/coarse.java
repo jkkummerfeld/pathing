@@ -10,9 +10,9 @@ import java.io.*;
 
 
 class Coarse {
-    public static double[] squares;
-    public static Vertex[] graph;
-    public static Vertex[] coarseGraph;
+    public static double[][] squares;
+    public static Vertex[][] graph;
+    public static Vertex[][] coarseGraph;
     public static int blockWidth;
     public static int blockHeight;
     public static int[] nodesPopped = new int[4]; // index 0 = dijkstra, 1 = euclid, 2 = corners
@@ -23,7 +23,8 @@ class Coarse {
     public static void main(String[] args) {
         if (args.length < 4) {
             System.out.print("Usage: java Coarse <map size> <number of searches> ");
-            System.out.println("<block width> <block height> [map file]");
+            System.out.println("<block width> <block height> [map file] [start x] [start y]");
+            System.out.println("[end x] [end y]");
             return;
         }
         int size = Integer.parseInt(args[0]);
@@ -33,25 +34,26 @@ class Coarse {
         blockWidth = Integer.parseInt(args[2]);
         blockHeight = Integer.parseInt(args[3]);
         squares = makeSquares(size);
-        if (args.length == 5) {
+        if (args.length >= 5) {
             try {
                 FileReader input = new FileReader(args[4]);
                 BufferedReader bufRead = new BufferedReader(input);
                 String row = null;
                 try {
-                    int r = 0;
-                    for (int i = 0; i < size; i++) {
+                    for (int r = 0; r < size; r++) {
                         row = bufRead.readLine();
                         String[] weights = row.split(" ");
+                        if (weights.length != size) {
+                            System.out.println("user input size does not match actual size of graph");
+                            return;
+                        }
                         int c = 0;
                         for (String s : weights) {
                             double weight = Double.parseDouble(s);
-                            squares[r*size+c] = weight;
+                            squares[r][c] = weight;
                             c++;
                         }
-                        r++;
                     }
-                    squares = makeSquares(size);
                 } catch(IOException ioe) {
                     System.out.println(ioe);
                 }
@@ -66,61 +68,82 @@ class Coarse {
         Random rng = new Random();
         Vertex[] starts = new Vertex[iterations];
         Vertex[] goals = new Vertex[iterations];
-        for (int i = 0; i < iterations; i++) {
-            starts[i] = graph[rng.nextInt(graphSize*graphSize/2)];
-            goals[i] = graph[graphSize*graphSize-1-rng.nextInt(graphSize*graphSize/2)];
+        if (args.length == 9) {
+            if (iterations != 1) {
+                System.out.println("number of searches must = 1 if start and goal specified");
+                return;
+            }
+            int startX = Integer.parseInt(args[5]);
+            int startY = Integer.parseInt(args[6]);
+            int endX = Integer.parseInt(args[7]);
+            int endY = Integer.parseInt(args[8]);
+            starts[0] = graph[startX][startY];
+            goals[0] = graph[endX][endY];
+        } else {
+            for (int i = 0; i < iterations; i++) {
+                starts[i] = graph[rng.nextInt(graphSize-1)][rng.nextInt(graphSize-1)];
+                goals[i] = graph[rng.nextInt(graphSize-1)][rng.nextInt(graphSize-1)];
+            }
         }
         
         int count = iterations;
         for (int i = 0; i < iterations; i++) {
-            for (Vertex v : graph) {
-                v.hScore = 0.0;
-                v.gScore = Double.POSITIVE_INFINITY;
-                v.fScore = Double.POSITIVE_INFINITY;
-                v.prev = null;
+            for (Vertex[] row : graph) {
+                for (Vertex v : row) {
+                    v.hScore = 0.0;
+                    v.gScore = Double.POSITIVE_INFINITY;
+                    v.fScore = Double.POSITIVE_INFINITY;
+                    v.prev = null;
+                }
             }
             Vertex start = starts[i];
             Vertex goal = goals[i];
-            Corners.addEdges(   coarseGraph, coarseGraph[goal.loc.x*graphSize+goal.loc.y],
+            Corners.addEdges(   coarseGraph, coarseGraph[goal.loc.x][goal.loc.y],
                                 blockWidth, blockHeight, size);
             coarseScores = new double[graphSize][graphSize];
-            dijkstra(coarseGraph[goal.loc.x*graphSize+goal.loc.y]);
+            dijkstra(coarseGraph[goal.loc.x][goal.loc.y]);
             
-            long startTimer = System.currentTimeMillis();
+            long startTimer = System.nanoTime();
             aStar(start, goal, 0);
             double dijkstraCost = goal.gScore;
             ArrayList<Vertex> dijkstraPath = getPath(goal);
-            long endTimer = System.currentTimeMillis();
-            times[0] += endTimer-startTimer;
+            long endTimer = System.nanoTime();
+            times[0] += (endTimer-startTimer)/1000;
             
-            for (Vertex v : graph) {
-                v.hScore = 0.0;
-                v.gScore = Double.POSITIVE_INFINITY;
-                v.fScore = Double.POSITIVE_INFINITY;
-                v.prev = null;
+            for (Vertex[] row : graph) {
+                for (Vertex v : row) {
+                    v.hScore = 0.0;
+                    v.gScore = Double.POSITIVE_INFINITY;
+                    v.fScore = Double.POSITIVE_INFINITY;
+                    v.prev = null;
+                }
             }
-            startTimer = System.currentTimeMillis();
+            startTimer = System.nanoTime();
             aStar(start, goal, 1);
             double euclidCost = goal.gScore;
             ArrayList<Vertex> euclidPath = getPath(goal);
-            endTimer = System.currentTimeMillis();
-            times[1] += endTimer-startTimer;
+            endTimer = System.nanoTime();
+            times[1] += (endTimer-startTimer)/1000;
             
-            for (Vertex v : graph) {
-                v.hScore = 0.0;
-                v.gScore = Double.POSITIVE_INFINITY;
-                v.fScore = Double.POSITIVE_INFINITY;
-                v.prev = null;
+            for (Vertex[] row : graph) {
+                for (Vertex v : row) {
+                    v.hScore = 0.0;
+                    v.gScore = Double.POSITIVE_INFINITY;
+                    v.fScore = Double.POSITIVE_INFINITY;
+                    v.prev = null;
+                }
             }
-            startTimer = System.currentTimeMillis();
+            startTimer = System.nanoTime();
             aStar(start, goal, 2);
             double cornerCost = goal.gScore;
             ArrayList<Vertex> cornerPath = getPath(goal);
-            endTimer = System.currentTimeMillis();
-            times[2] += endTimer-startTimer;
+            endTimer = System.nanoTime();
+            times[2] += (endTimer-startTimer)/1000;
             
-            if(Math.abs(cornerCost - dijkstraCost) > 0.000001) {
-                count = count-1;
+            if(Math.abs(cornerCost - dijkstraCost) > 0.000001 || iterations == 1) {
+                if (Math.abs(cornerCost - dijkstraCost) > 0.000001) {
+                    count = count-1;
+                }
                 /*for (Vertex v : coarseGraph) {
                     System.out.print(v.getLoc()+" ");
                     for (Edge e : v.neighbors) {
@@ -201,11 +224,13 @@ class Coarse {
     }
 
     public static void aStar(Vertex start, Vertex goal, int type) {
-        for (Vertex v : coarseGraph) { // initialization of all node attributes
-            v.gScore = Double.POSITIVE_INFINITY;
-            v.fScore = Double.POSITIVE_INFINITY;
-            v.hScore = 0.0;
-            v.prev = null;
+        for (Vertex[] row : coarseGraph) { // initialization of all node attributes
+            for (Vertex v : row) {
+                v.gScore = Double.POSITIVE_INFINITY;
+                v.fScore = Double.POSITIVE_INFINITY;
+                v.hScore = 0.0;
+                v.prev = null;
+            }
         }
         PriorityQueue<Vertex> fringe = new PriorityQueue<Vertex>();
         
@@ -235,8 +260,13 @@ class Coarse {
     }
     
     public static void dijkstra(Vertex source) {
-        for (Vertex v : coarseGraph) { // initialization of all node attributes
-            v.gScore = Double.POSITIVE_INFINITY;
+        for (Vertex[] row : coarseGraph) { // initialization of all node attributes
+            for (Vertex v : row) {
+                v.gScore = Double.POSITIVE_INFINITY;
+                v.fScore = Double.POSITIVE_INFINITY;
+                v.hScore = 0.0;
+                v.prev = null;
+            }
         }
             
         source.gScore = 0.0;
@@ -274,13 +304,13 @@ class Coarse {
         return path;
     }
     
-    public static String printGraph(Vertex[] graph, ArrayList<Vertex> path) {
-        int size = squareRoot(graph.length);
+    public static String printGraph(Vertex[][] graph, ArrayList<Vertex> path) {
+        int size = graph[0].length;
         //System.out.println("\n Displaying path...");
         String output = "";
         for (int r = 0; r < size; r++) {
             for (int c = 0; c < size; c++) {
-                Vertex v = graph[r*size+c];
+                Vertex v = graph[r][c];
                 if (path.contains(v)) {
                     output += v.inPath();
                 } else {
@@ -292,13 +322,13 @@ class Coarse {
         return output;
     }
     
-    public static String printGraph(Vertex[] graph) {
-        int size = squareRoot(graph.length);
+    public static String printGraph(Vertex[][] graph) {
+        int size = graph[0].length;
         //System.out.println("\n Displaying graph...");
         String output = "";
         for (int r = 0; r < size; r++) {
             for (int c = 0; c < size; c++) {
-                Vertex v = graph[r*size+c];
+                Vertex v = graph[r][c];
                 output += v;
             }
             output += "\n";
@@ -306,13 +336,13 @@ class Coarse {
         return output;
     }
     
-    public static String printGraph(double[] graph) {
-        int size = squareRoot(graph.length);
+    public static String printGraph(double[][] graph) {
+        int size = graph[0].length;
         //System.out.println("\n Displaying graph...");
         String output = "";
         for (int r = 0; r < size; r++) {
             for (int c = 0; c < size; c++) {
-                double weight = graph[r*size+c];
+                double weight = graph[r][c];
                 output += weight+" ";
             }
             output += "\n";
@@ -324,26 +354,24 @@ class Coarse {
         return ((Double)Math.sqrt(number)).intValue();
     }
     
-    public static double[] makeSquares(int size) {
-        double[] squares = new double[size*size];
+    public static double[][] makeSquares(int size) {
+        double[][] squares = new double[size][size];
         Random rng = new Random();
         for (int row = 0; row < size; row++) {
             for (int col = 0; col < size; col++) {
-                int index = row*size+col;
-                squares[index] = (double)(1 + rng.nextInt(3));
+                squares[row][col] = (double)(1 + rng.nextInt(3));
             }
         }
         return squares;
     }
     
-    public static Vertex[] squaresToVertices(double[] squares, int originalSize) {
+    public static Vertex[][] squaresToVertices(double[][] squares, int originalSize) {
         int size = originalSize + 1;
-        Vertex[] graph = new Vertex[size*size];
+        Vertex[][] graph = new Vertex[size][size];
         for (int row = 0; row < size; row++) {
             for (int col = 0; col < size; col++) {
-                int index = row*size+col;
                 Vertex v = new Vertex(row, col, 0.0);
-                graph[index] = v;
+                graph[row][col] = v;
             }
         }
     
@@ -360,15 +388,13 @@ class Coarse {
         
         for (int row = 0; row <size; row++) {
             for (int col = 0; col < size; col++) {
-                int index = row*size+col;
-                Vertex v = graph[index];
+                Vertex v = graph[row][col];
                 for (int i = 0; i < 4; i++) {
                     Point offset = cardinalOffsets[i];
                     int newRow = row + offset.x;
                     int newCol = col + offset.y;
                     if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
-                        int newIndex = newRow*size+newCol;
-                        Vertex u = graph[newIndex];
+                        Vertex u = graph[newRow][newCol];
                         
                         double square1 = Double.POSITIVE_INFINITY;
                         double square2 = Double.POSITIVE_INFINITY;
@@ -377,14 +403,14 @@ class Coarse {
                         int squareCol1 = col + offset1.y;
                         if (squareRow1 >= 0 && squareRow1 < originalSize &&
                             squareCol1 >= 0 && squareCol1 < originalSize) {
-                            square1 = squares[squareRow1*originalSize+squareCol1];
+                            square1 = squares[squareRow1][squareCol1];
                         }
                         Point offset2 = cardinalSquares[(2*i)+1];
                         int squareRow2 = row + offset2.x;
                         int squareCol2 = col + offset2.y;
                         if (squareRow2 >= 0 && squareRow2 < originalSize &&
                             squareCol2 >= 0 && squareCol2 < originalSize) {
-                            square2 = squares[squareRow2*originalSize+squareCol2];
+                            square2 = squares[squareRow2][squareCol2];
                         }
                         Edge e = new Edge(v, u, Math.min(square1, square2));
                         v.neighbors.add(e);
@@ -395,12 +421,11 @@ class Coarse {
                     int newRow = row + offset.x;
                     int newCol = col + offset.y;
                     if (newRow >= 0 && newRow < size && newCol >= 0 && newCol < size) {
-                        int newIndex = newRow*size+newCol;
-                        Vertex u = graph[newIndex];
+                        Vertex u = graph[newRow][newCol];
                         Point squareOffset = diagonalSquares[i];
                         int squareRow = row + squareOffset.x;
                         int squareCol = col + squareOffset.y;
-                        double square = squares[squareRow*originalSize+squareCol];
+                        double square = squares[squareRow][squareCol];
                         Edge e = new Edge(v, u, square*Math.sqrt(2.0));
                         v.neighbors.add(e);
                     }
@@ -472,61 +497,55 @@ class Edge {
 }
 
 class Corners {
-    public static double[] weightGraph;
-    public static double[] newSquares;
+    public static double[][] weightGraph;
+    public static double[][] newSquares;
     
-    public static Vertex[] makeCoarseLayer(Vertex[] argGraph, double[] argSquares,
+    public static Vertex[][] makeCoarseLayer(Vertex[][] argGraph, double[][] argSquares,
                                             int blockW, int blockH, int argSize) {
         int squaresSize = argSize;
         int graphSize = argSize + 1;
-        double[] squares = argSquares;
-        Vertex[] graph = argGraph;
+        double[][] squares = argSquares;
+        Vertex[][] graph = argGraph;
     
         //Assign blocks and find which sqaure has the minimum weight in each block
-        weightGraph = new double[(squaresSize)/blockW*(squaresSize)/blockH];
-        for (int bR = 0; bR < (squaresSize)/blockH; bR++) {
-            for (int bC = 0; bC < (squaresSize)/blockW; bC++) {
-                int bIndex = bR*(squaresSize)/blockW+bC;
+        weightGraph = new double[squaresSize/blockH][squaresSize/blockW];
+        for (int bR = 0; bR < squaresSize/blockH; bR++) {
+            for (int bC = 0; bC < squaresSize/blockW; bC++) {
                 double minWeight = Double.POSITIVE_INFINITY;
                 for (int r = bR*blockH; r < (bR+1)*blockH; r++) {
                     for (int c = bC*blockW; c < (bC+1)*blockW; c++) {
-                        int index = r*(squaresSize)+c;
-                        minWeight = Math.min(minWeight, squares[index]);
+                        minWeight = Math.min(minWeight, squares[r][c]);
                     }
                 }
-                weightGraph[bIndex] = minWeight;
+                weightGraph[bR][bC] = minWeight;
             }
         }
         
         //Make a coarse copy of the original graph
-        newSquares = new double[squaresSize*squaresSize];
+        newSquares = new double[squaresSize][squaresSize];
         for (int r = 0; r < squaresSize; r++) {
             for(int c = 0; c < squaresSize; c++) {
-                int index = r*squaresSize+c;
-                int blockIndex = (r/blockH)*(squaresSize/blockW)+(c/blockW);
-                double weight = weightGraph[blockIndex];
-                newSquares[index] = weight;
+                double weight = weightGraph[r/blockH][c/blockW];
+                newSquares[r][c] = weight;
             }
         }
-        Vertex[] newGraph = new Vertex[graphSize*graphSize];
+        Vertex[][] newGraph = new Vertex[graphSize][graphSize];
         for (int r = 0; r < graphSize; r++) {
             for (int c = 0; c < graphSize; c++) {
-                int index = r*graphSize+c;
-                Vertex v = graph[index];
-                newGraph[index] = new Vertex(v);
+                Vertex v = graph[r][c];
+                newGraph[r][c] = new Vertex(v);
             }
         }
         
         //Form edges within blocks - C to B, C to C, and C to I
-        for (int bR = 0; bR < (squaresSize)/blockH; bR++) {
-            for (int bC = 0; bC < (squaresSize)/blockW; bC++) {
-                int bIndex = bR*(squaresSize)/blockW+bC;
+        for (int bR = 0; bR < squaresSize/blockH; bR++) {
+            for (int bC = 0; bC < squaresSize/blockW; bC++) {
                 ArrayList<Vertex> corner = new ArrayList<Vertex>();
                 ArrayList<Vertex> inside = new ArrayList<Vertex>();
                 ArrayList<Vertex> border = new ArrayList<Vertex>();
                 for (int r = bR*blockH; r <= (bR+1)*blockH; r++) {
                     for (int c = bC*blockW; c <= (bC+1)*blockW; c++) {
-                        Vertex v = newGraph[r*graphSize+c];
+                        Vertex v = newGraph[r][c];
                         if (r%blockH == 0 && c%blockW == 0) {
                             corner.add(v);
                         } else if (r%blockH != 0 && c%blockW != 0) {
@@ -536,7 +555,7 @@ class Corners {
                         }
                     }
                 }
-                double blocWeight = weightGraph[bIndex];
+                double blocWeight = weightGraph[bR][bC];
                 //C to B
                 for (Vertex c : corner) {
                     for (Vertex b : border) {
@@ -570,7 +589,7 @@ class Corners {
                             Edge e = new Edge(c1, c2, weight);
                             c1.neighbors.add(e);
                         } else {
-                            double weight = Math.min(xDiff,yDiff)*blocWeight;
+                            double weight = Math.max(xDiff,yDiff)*blocWeight;
                             Edge e = new Edge(c1, c2, weight);
                             c1.neighbors.add(e);
                         }
@@ -581,7 +600,7 @@ class Corners {
                     for (Vertex i : inside) {
                         int xDiff = Math.abs(c.loc.x-i.loc.x);
                         int yDiff = Math.abs(c.loc.y-i.loc.y);
-                        double weight = Math.min(xDiff,yDiff)*blocWeight;
+                        double weight = Math.max(xDiff,yDiff)*blocWeight;
                         Edge cToI = new Edge(c, i, weight);
                         Edge iToC = new Edge(i, c, weight);
                         c.neighbors.add(cToI);
@@ -594,7 +613,7 @@ class Corners {
         return newGraph;
     }
     
-    public static void addEdges(Vertex[] graph, Vertex source,
+    public static void addEdges(Vertex[][] graph, Vertex source,
                                 int blockW, int blockH, int size) {
         int sourceR = source.loc.x;
         int sourceC = source.loc.y;
@@ -608,23 +627,23 @@ class Corners {
         }
     }
     
-    public static void explodeBlock(Vertex[] graph, Vertex source, int blockR, int blockC,
+    public static void explodeBlock(Vertex[][] graph, Vertex source, int blockR, int blockC,
                                     int blockW, int blockH, int size) {
         for (int r = blockR*blockH; r <= (blockR+1)*blockH; r++) {
             for (int c = blockC*blockW; c <= (blockC+1)*blockW; c++) {
-                Vertex v = graph[r*(size+1)+c];
+                Vertex v = graph[r][c];
                 if (v.loc == source.loc) {
                     continue;
                 }
                 int rowDiff = Math.abs(v.loc.x-source.loc.x);
                 int colDiff = Math.abs(v.loc.y-source.loc.y);
-                double weight = weightGraph[blockR*(size/blockW)+blockC];
+                double weight = weightGraph[blockR][blockC];
                 if (rowDiff == 0) {
                     weight = colDiff*weight;
                 } else if (colDiff == 0) {
                     weight = rowDiff*weight;
                 } else {
-                    weight = Math.min(rowDiff,colDiff)*weight;
+                    weight = Math.max(rowDiff,colDiff)*weight;
                 }
                 Edge e = new Edge(v, source, weight);
                 e.marked = true;
@@ -634,19 +653,21 @@ class Corners {
         }
     }
     
-    public static void removeEdges(Vertex[] graph) {
-        for (Vertex v : graph) {
-            if (v.marked) {
-                ArrayList<Edge> newNeighbors = new ArrayList<Edge>();
-                for (Edge e : v.neighbors) {
-                    if (e.marked) {
-                        continue;
-                    } else {
-                        newNeighbors.add(e);
+    public static void removeEdges(Vertex[][] graph) {
+        for (Vertex[] row : graph) {
+            for (Vertex v : row) {
+                if (v.marked) {
+                    ArrayList<Edge> newNeighbors = new ArrayList<Edge>();
+                    for (Edge e : v.neighbors) {
+                        if (e.marked) {
+                            continue;
+                        } else {
+                            newNeighbors.add(e);
+                        }
                     }
+                    v.neighbors = newNeighbors;
+                    v.marked = false;
                 }
-                v.neighbors = newNeighbors;
-                v.marked = false;
             }
         }
     }                
