@@ -247,7 +247,7 @@ class Coarse {
                 if (tempGScore > neighbor.gScore) { // ignores update stage if cost is greater than current cost
                     continue;
                 }
-                if (tempGScore < neighbor.gScore) { // otherwise updates its neighbors and adds to fringe
+                if (tempGScore <= neighbor.gScore) { // otherwise updates its neighbors and adds to fringe
                     neighbor.prev = v;
                     neighbor.gScore = tempGScore;
                     neighbor.hScore = heuristic(neighbor, goal, type);
@@ -475,7 +475,11 @@ class Vertex implements Comparable<Vertex> {
     }
     
     public int compareTo(Vertex v) {
-        return Double.compare(fScore, v.fScore);
+        if (Double.compare(fScore, v.fScore) == 0) {
+            return Double.compare(gScore, v.gScore);
+        } else {
+            return Double.compare(fScore, v.fScore);
+        }
     }
 }
 
@@ -507,7 +511,7 @@ class Corners {
         double[][] squares = argSquares;
         Vertex[][] graph = argGraph;
     
-        //Assign blocks and find which sqaure has the minimum weight in each block
+        //Assign blocks and find which square has the minimum weight in each block
         weightGraph = new double[squaresSize/blockH][squaresSize/blockW];
         for (int bR = 0; bR < squaresSize/blockH; bR++) {
             for (int bC = 0; bC < squaresSize/blockW; bC++) {
@@ -589,7 +593,7 @@ class Corners {
                             Edge e = new Edge(c1, c2, weight);
                             c1.neighbors.add(e);
                         } else {
-                            double weight = Math.max(xDiff,yDiff)*blocWeight;
+                            double weight = diag(xDiff,yDiff)*blocWeight*delta;
                             Edge e = new Edge(c1, c2, weight);
                             c1.neighbors.add(e);
                         }
@@ -600,7 +604,7 @@ class Corners {
                     for (Vertex i : inside) {
                         int xDiff = Math.abs(c.loc.x-i.loc.x);
                         int yDiff = Math.abs(c.loc.y-i.loc.y);
-                        double weight = Math.max(xDiff,yDiff)*blocWeight;
+                        double weight = diag(xDiff,yDiff)*blocWeight*delta;
                         Edge cToI = new Edge(c, i, weight);
                         Edge iToC = new Edge(i, c, weight);
                         c.neighbors.add(cToI);
@@ -612,6 +616,7 @@ class Corners {
         
         return newGraph;
     }
+    public static double delta = 1.0;
     
     public static void addEdges(Vertex[][] graph, Vertex source,
                                 int blockW, int blockH, int size) {
@@ -629,6 +634,7 @@ class Corners {
     
     public static void explodeBlock(Vertex[][] graph, Vertex source, int blockR, int blockC,
                                     int blockW, int blockH, int size) {
+        source.marked = true;
         for (int r = blockR*blockH; r <= (blockR+1)*blockH; r++) {
             for (int c = blockC*blockW; c <= (blockC+1)*blockW; c++) {
                 Vertex v = graph[r][c];
@@ -643,11 +649,14 @@ class Corners {
                 } else if (colDiff == 0) {
                     weight = rowDiff*weight;
                 } else {
-                    weight = Math.max(rowDiff,colDiff)*weight;
+                    weight = diag(rowDiff,colDiff)*weight*delta;
                 }
                 Edge e = new Edge(v, source, weight);
+                Edge f = new Edge(source, v, weight);
                 e.marked = true;
+                f.marked = true;
                 v.neighbors.add(e);
+                source.neighbors.add(f);
                 v.marked = true;
             }
         }
@@ -670,5 +679,12 @@ class Corners {
                 }
             }
         }
-    }                
+    }
+    
+    public static double diag(double leg1, double leg2) {
+        double squareSum = leg1*leg1+leg2*leg2;
+        //return Math.sqrt(squareSum);
+        //return Math.max(leg1,leg2);
+        return Math.min(leg1,leg2);
+    }
 }
