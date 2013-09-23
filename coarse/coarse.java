@@ -10,6 +10,8 @@ import java.io.*;
 
 
 class Coarse {
+    public static int counter1 = 0;
+    public static int counter2 = 0;
     public static double[][] squares;
     public static Vertex[][] graph;
     public static Vertex[][] coarseGraph;
@@ -18,7 +20,9 @@ class Coarse {
     public static int[] nodesPopped = new int[4]; // index 0 = dijkstra, 1 = euclid, 2 = corners
     public static long[] times = new long[3];
     public static double[][] coarseScores;
-    public static PriorityQueue<Vertex> savedFringe = new PriorityQueue<Vertex>();
+    public static PriorityQueue<Vertex> savedFringe = null;
+    public static Vertex globalStart;
+    public static Vertex globalGoal;
 
     public static void main(String[] args) {
         if (args.length < 4) {
@@ -62,8 +66,9 @@ class Coarse {
             }
         }
         graph = squaresToVertices(squares, size);
+        long startCoarseTimer = System.nanoTime();
         coarseGraph = Corners.makeCoarseLayer(graph, squares, blockWidth, blockHeight, size);
-        coarseScores = new double[graphSize][graphSize];
+        long endCoarseTimer = System.nanoTime();
         
         Random rng = new Random();
         Vertex[] starts = new Vertex[iterations];
@@ -88,6 +93,7 @@ class Coarse {
         
         int count = iterations;
         for (int i = 0; i < iterations; i++) {
+            savedFringe = null;
             for (Vertex[] row : graph) {
                 for (Vertex v : row) {
                     v.hScore = 0.0;
@@ -98,10 +104,18 @@ class Coarse {
             }
             Vertex start = starts[i];
             Vertex goal = goals[i];
+            globalStart = start;
+            globalGoal = goal;
             Corners.addEdges(   coarseGraph, coarseGraph[goal.loc.x][goal.loc.y],
                                 blockWidth, blockHeight, size);
             coarseScores = new double[graphSize][graphSize];
-            dijkstra(coarseGraph[goal.loc.x][goal.loc.y]);
+            for (double[] row : coarseScores) {
+                for (int index = 0; index < row.length; index++) {
+                    row[index] = -1.0;
+                }
+            }
+            //coarseScores = new double[graphSize][graphSize];
+            //dijkstra(coarseGraph[goal.loc.x][goal.loc.y]);
             
             long startTimer = System.nanoTime();
             aStar(start, goal, 0);
@@ -190,34 +204,38 @@ class Coarse {
             Corners.removeEdges(coarseGraph);
         }
         System.out.println("Performance: " + count + "/" + iterations);
-        System.out.println("Nodes Popped\n    Dijkstra: "+nodesPopped[0]);
-        System.out.println("    Euclid: "+nodesPopped[1]+"\n    Corners: "+nodesPopped[2]);
+        System.out.println("Nodes Popped\n    Dijkst: "+nodesPopped[0]);
+        System.out.println("    Euclid: "+nodesPopped[1]+"\n    Corner: "+nodesPopped[2]);
         System.out.println("    Coarse: "+nodesPopped[3]);
-        System.out.println("\nTimes\n    Dijkstra: "+times[0]+"\n    Euclid: "+times[1]);
-        System.out.println("    Corners: "+times[2]);
+        System.out.println("\nTimes\n    Dijkst: "+times[0]+"\n    Euclid: "+times[1]);
+        System.out.println("    Corner: "+times[2]);
+        System.out.println("\nTime to generate coarse graph: "+(endCoarseTimer-startCoarseTimer)/1000);
+        System.out.println("\nCalls to Coarse Search: "+counter1);
+        System.out.println("In-table heuristic reads: "+counter2);
     }
 
     public static double heuristic(Vertex start, Vertex goal, int type) {
-        if (type == 0) {
+        if (type == 0) { //Dijkst
             return 0;
         }
-        if (type == 1) {
+        if (type == 1) { //Euclid
             double xDiff = Math.abs(start.loc.x - goal.loc.x);
             double yDiff = Math.abs(start.loc.y - goal.loc.y);
             double lesser = Math.min(xDiff, yDiff);
             double greater = Math.max(xDiff, yDiff);
-            //return lesser*Math.sqrt(2.0) + (greater-lesser);
+            return lesser*Math.sqrt(2.0) + (greater-lesser);
             //return Math.sqrt((xDiff*xDiff)+(yDiff*yDiff));
-            return greater;
+            //return greater;
         }
-        if (type == 2) {
-            int size = squareRoot(graph.length);
-            /**if (coarseScores[start.loc.x][start.loc.y] == 0) {
-                Vertex startInCoarse = coarseGraph[start.loc.x*size+start.loc.y];
-                Vertex goalInCoarse = coarseGraph[goal.loc.x*size+goal.loc.y];
-                dijkstra(goalInCoarse);
+        if (type == 2) { //Corner
+            if (coarseScores[start.loc.x][start.loc.y] == -1.0) {
+                counter1++;
+                Vertex startInCoarse = coarseGraph[start.loc.x][start.loc.y];
+                Vertex goalInCoarse = coarseGraph[goal.loc.x][goal.loc.y];
+                dijkstra(goalInCoarse, startInCoarse);
+            } else {
+                counter2++;
             }
-            return goalInCoarse.gScore;*/
             return coarseScores[start.loc.x][start.loc.y];
         }
         return 0;
@@ -237,17 +255,19 @@ class Coarse {
         start.gScore = 0.0;
         start.hScore = heuristic(start, goal, type);
         start.fScore = start.gScore + start.hScore;
+        fringe.add(start);
         Vertex v = start;
         
         while (v.fScore < goal.gScore) { // stopping condition for fringe popping
             nodesPopped[type] += 1;
+            v = fringe.poll();
             for (Edge e : v.neighbors) {
                 Vertex neighbor = e.target;
                 double tempGScore = v.gScore + e.weight;
-                if (tempGScore > neighbor.gScore) { // ignores update stage if cost is greater than current cost
+                if (tempGScore >= neighbor.gScore) { // ignores update stage if cost is greater than current cost
                     continue;
                 }
-                if (tempGScore <= neighbor.gScore) { // otherwise updates its neighbors and adds to fringe
+                if (tempGScore < neighbor.gScore) { // otherwise updates its neighbors and adds to fringe
                     neighbor.prev = v;
                     neighbor.gScore = tempGScore;
                     neighbor.hScore = heuristic(neighbor, goal, type);
@@ -255,37 +275,48 @@ class Coarse {
                     fringe.add(neighbor);
                 }
             }
-            v = fringe.poll();
         }
     }
     
-    public static void dijkstra(Vertex source) {
-        for (Vertex[] row : coarseGraph) { // initialization of all node attributes
-            for (Vertex v : row) {
-                v.gScore = Double.POSITIVE_INFINITY;
-                v.fScore = Double.POSITIVE_INFINITY;
-                v.hScore = 0.0;
-                v.prev = null;
-            }
-        }
-            
-        source.gScore = 0.0;
+    public static void dijkstra(Vertex source, Vertex stopper) {
         PriorityQueue<Vertex> queue = new PriorityQueue<Vertex>();
-      	queue.add(source);
-
-        while (!queue.isEmpty()) {
-            nodesPopped[3] += 1;
-            Vertex u = queue.poll();
-            for (Edge e : u.neighbors) {
-                Vertex v = e.target;
-                double tempGScore = u.gScore + e.weight;
-                if (tempGScore < v.gScore) {
-                    queue.remove(v);
-                    v.gScore = tempGScore ;
-                    coarseScores[v.loc.x][v.loc.y] = v.gScore;
-                    v.prev = u;
-                    queue.add(v);
+        if (savedFringe == null) {
+            for (Vertex[] row : coarseGraph) { // initialization of all node attributes
+                for (Vertex v : row) {
+                    v.gScore = Double.POSITIVE_INFINITY;
+                    v.fScore = Double.POSITIVE_INFINITY;
+                    v.hScore = 0.0;
+                    v.prev = null;
                 }
+            }
+            source.gScore = 0.0;
+            source.hScore = heuristic(source, globalStart, 1);
+            source.fScore = source.gScore + source.hScore;
+            queue.add(source);
+        } else {
+            queue = savedFringe;
+        }
+        boolean resume = true;
+
+        while (!queue.isEmpty() && resume == true) {
+            nodesPopped[3] += 1;
+            Vertex current = queue.poll();
+            for (Edge e : current.neighbors) {
+                Vertex neighbor = e.target;
+                double tempGScore = current.gScore + e.weight;
+                if (tempGScore < neighbor.gScore) {
+                    queue.remove(neighbor);
+                    neighbor.gScore = tempGScore ;
+                    neighbor.hScore = heuristic(neighbor, globalStart, 1);
+                    neighbor.fScore = neighbor.gScore + neighbor.hScore;
+                    coarseScores[neighbor.loc.x][neighbor.loc.y] = neighbor.gScore;
+                    neighbor.prev = current;
+                    queue.add(neighbor);
+                }
+            }
+            if (current == stopper) {
+                resume = false;
+                savedFringe = queue;
             }
         }
     }
@@ -685,6 +716,6 @@ class Corners {
         double squareSum = leg1*leg1+leg2*leg2;
         //return Math.sqrt(squareSum);
         //return Math.max(leg1,leg2);
-        return Math.min(leg1,leg2);
+        return Math.min(leg1,leg2)+0.1;
     }
 }
