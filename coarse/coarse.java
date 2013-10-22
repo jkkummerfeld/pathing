@@ -1,13 +1,6 @@
-import java.util.PriorityQueue;
 import java.util.*;
-import java.util.Collection;
-import java.util.Collections;
-import java.awt.Point;
-import java.util.Random;
-import java.io.PrintWriter;
-import java.io.FileNotFoundException;
 import java.io.*;
-
+import java.awt.Point;
 
 class Coarse {
     public static int counter1 = 0;
@@ -46,7 +39,7 @@ class Coarse {
         squares = makeSquares(mapHeight, mapWidth);
         if (args.length >= 6) {
             try {
-                FileReader input = new FileReader(args[4]);
+                FileReader input = new FileReader(args[5]);
                 BufferedReader bufRead = new BufferedReader(input);
                 String row = null;
                 try {
@@ -62,7 +55,7 @@ class Coarse {
                                 System.out.println("user input size does not match actual size of graph");
                                 return;
                             }
-                            int c = 0;
+                        11!    int c = 0;
                             for (String s : weights) {
                                 double weight = Double.parseDouble(s);
                                 squares[r][c] = weight;
@@ -886,7 +879,7 @@ class Corners {
                 } else if (colDiff == 0) {
                     weight = rowDiff*weight;
                 } else {
-                    weight = diag(rowDiff,colDiff)*weight*delta;
+                    weight = diag(rowDiff,colDiff)*weight;
                 }
                 Edge e1 = new Edge(v, source, weight);
                 Edge e2 = new Edge(source, v, weight);
@@ -921,7 +914,10 @@ class Corners {
     public static double diag(double leg1, double leg2) {
         double squareSum = leg1*leg1+leg2*leg2;
         //return Math.sqrt(squareSum);
-        return Math.max(leg1,leg2);
+        //return Math.max(leg1,leg2);
         //return Math.min(leg1,leg2);
+        double lesser = Math.min(leg1, leg2);
+        double greater = Math.max(leg1, leg2);
+        return lesser*Math.sqrt(2.0) + (greater-lesser);
     }
 }
