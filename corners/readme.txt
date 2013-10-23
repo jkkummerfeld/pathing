@@ -7,8 +7,3 @@ defaults:   # SEARCHES      : 1
             if # SEARCHES=1 : START   = (0, 0)
                               GOAL    = (H, W)
             else            : START and GOAL are randomly selected points on the map
-            
-notes:      If # SEARCHES is more than 1, the program will automatically terminate if the
-            CORNERS heuristic returns a path that is more than 5% away from optimal. The 
-            search that caused this, as well as the map and some data about the search
-            is written to 'results.txt'
