@@ -85,6 +85,7 @@ class Search {
         int euclidNodes = 0;
         int coarseNodes = 0;
         double error = 0.0;
+        double totalError = 0.0;
         double nodeDiff = 0.0;
         double timeDiff = 0.0;
         
@@ -132,12 +133,13 @@ class Search {
             if (iterations == 1)
                 System.out.println("finished running DIJKSTRA");
             
-            error += (Math.abs(dijkstraScore - cornersScore)/dijkstraScore)*100;
+            error = (Math.abs(dijkstraScore - cornersScore)/dijkstraScore)*100;
+            totalError += error;
             
             graph.clear();
             coarseGraph.clear();
             
-            if (error > 5) {
+            if (error > 10 || i == iterations-1) {
                 try {
                     /*PrintWriter mapWriter = new PrintWriter("map.txt");
                     mapWriter.println(map);
@@ -170,9 +172,13 @@ class Search {
                     writer.println("Time taken: "+euclidTimer+"\n");
                     
                     if (mapHeight*mapWidth < 10000) {
+                        writer.println("H-Score lookup table:");
                         writer.println(((CornersHeuristic)c).tableAsString());
+                        writer.println("\nPath taken by CORNERS:");
                         writer.println(graph.toString(cornersPath, blockH, blockW));
+                        writer.println("\nPath taken by DIJKSTRA:");
                         writer.println(graph.toString(dijkstraPath, blockH, blockW));
+                        writer.println("\nPath taken by EUCLID:");
                         writer.println(graph.toString(euclidPath, blockH, blockW));
                     }
                     writer.close();
@@ -203,7 +209,7 @@ class Search {
         System.out.println("Time taken: "+dijkstraTimer+"\n");
         
         System.out.println("CORNERS heuristic on average... ");
-        System.out.printf("was %.2f %% within optimal score\n",(100-error/iterations));
+        System.out.printf("was %.2f %% within optimal score\n",(100-totalError/iterations));
         System.out.printf("popped %.2f %% of nodes popped by others\n",nodeDiff);
         System.out.printf("took %.2f %% of the time took by others\n",timeDiff);
     }
@@ -371,9 +377,10 @@ class Search {
         
         public String toString() {
             String output = "";
+            DecimalFormat df = new DecimalFormat("00");
             for (int r = 0; r < height; r++) {
                 for (int c = 0; c < width; c++) {
-                    output+=map[r][c]+" ";
+                    output+=df.format(map[r][c])+" ";
                 }
                 output+="\n";
             }

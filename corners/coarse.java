@@ -55,7 +55,7 @@ class Coarse {
                                 System.out.println("user input size does not match actual size of graph");
                                 return;
                             }
-                        11!    int c = 0;
+							int c = 0;
                             for (String s : weights) {
                                 double weight = Double.parseDouble(s);
                                 squares[r][c] = weight;
