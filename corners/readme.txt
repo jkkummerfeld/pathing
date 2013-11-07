@@ -15,4 +15,8 @@ notes:      If more than 1 search is run, the program will automatically termina
 			
 make:		'make all' compiles all source files and 
 			'make clean' removes /bin and all .class files in the current folder
-			'make test' runs the search on a randomly generated 64 x 64 map 100 times
+			'make test' runs the search on 100 times on each of the following:
+				a randomly generated 64 x 64 map with 4 x 4 blocks
+				maps/checkers.txt with 5 x 5 blocks
+				maps/hhlarge.txt with 5 x 5 blocks
+				maps/bullseye.txt with 5 x 5 blocks from the bottom-right to the center

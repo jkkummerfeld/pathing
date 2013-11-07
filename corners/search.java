@@ -16,6 +16,8 @@ class Search {
     public static Graph graph;
     public static Graph coarseGraph;
     public static boolean reopen;
+	
+	public static double errThresh = 0.1;
 
     public static void main(String[] args) {
         
@@ -48,9 +50,11 @@ class Search {
         Vertex[] goals = new Vertex[iterations];
         
         if (args.length >= 10 && iterations == 1) {
+		// if start and goal coordinates are specified
             starts[0] = graph.get(Integer.parseInt(args[6]), Integer.parseInt(args[7]));
             goals[0] = graph.get(Integer.parseInt(args[8]), Integer.parseInt(args[9]));
         } else if (map.startR != -1 && map.startC != -1
+		// if the parsed map has start and input coordinates specified in the .txt file
             && map.goalR != -1 && map.goalC != -1 && iterations == 1) {
             starts[0] = graph.get(map.startR, map.startC);
             goals[0] = graph.get(map.goalR, map.goalC);
@@ -94,7 +98,7 @@ class Search {
             goal = goals[i];
             coarseGraph.addStart(start, blockH, blockW);
             coarseGraph.addGoal(goal, blockH, blockW);
-            
+			
             // test corners
             Heuristic c = new CornersHeuristic(graph, coarseGraph, coarseMap);
             aStar(start, goal, c, graph);
@@ -139,15 +143,13 @@ class Search {
             graph.clear();
             coarseGraph.clear();
             
-            if (error > 10 || i == iterations-1) {
+            if (error > errThresh) {
                 try {
-                    /*PrintWriter mapWriter = new PrintWriter("map.txt");
+                    PrintWriter mapWriter = new PrintWriter("maps/error.txt");
                     mapWriter.println(map);
-                    mapWriter.close();*/
+                    mapWriter.close();
                     
                     PrintWriter writer = new PrintWriter("results.txt");
-                    writer.println(map);
-                    writer.println(coarseMap);
                     
                     writer.println("START: "+start);
                     writer.println("GOAL: "+goal);
@@ -172,6 +174,8 @@ class Search {
                     writer.println("Time taken: "+euclidTimer+"\n");
                     
                     if (mapHeight*mapWidth < 10000) {
+						writer.println("Map: \n"+map);
+						writer.println("Coarse layer: \n"+coarseMap);
                         writer.println("H-Score lookup table:");
                         writer.println(((CornersHeuristic)c).tableAsString());
                         writer.println("\nPath taken by CORNERS:");
@@ -185,14 +189,16 @@ class Search {
                 } catch(FileNotFoundException err) {
                     System.out.println("File was not found in method: MAIN");
                 }
-                System.out.println("\n\nreturned a non-optimal path - breaking operation at iteration "+i);
+				if (error > errThresh) {
+					System.out.println("\nreturned a non-optimal path - breaking operation at iteration "+i);
+				}
                 break;
             }
         }
         nodeDiff = ((double)cornersNodes/Math.min(euclidNodes,dijkstraNodes))*100.0;
         timeDiff = ((double)cornersTimer/Math.min(euclidTimer,dijkstraTimer))*100.0;
         
-        System.out.println("COARSE LAYER");
+        /*System.out.println("COARSE LAYER");
         System.out.println("Nodes popped: "+coarseNodes);
         System.out.println("Time taken: "+coarseTimer+"\n");
         
@@ -206,12 +212,13 @@ class Search {
         
         System.out.println("DIJSKTRA");
         System.out.println("Nodes popped: "+dijkstraNodes);
-        System.out.println("Time taken: "+dijkstraTimer+"\n");
+        System.out.println("Time taken: "+dijkstraTimer+"\n");*/
         
-        System.out.println("CORNERS heuristic on average... ");
+        System.out.println("\nCORNERS heuristic on average... ");
         System.out.printf("was %.2f %% within optimal score\n",(100-totalError/iterations));
-        System.out.printf("popped %.2f %% of nodes popped by others\n",nodeDiff);
-        System.out.printf("took %.2f %% of the time took by others\n",timeDiff);
+        System.out.printf("popped %.2f %% of nodes popped by others (%d nodes)\n",nodeDiff,cornersNodes);
+        System.out.printf("took %.2f %% of the time took by others (%d us)\n",timeDiff,cornersTimer);
+		System.out.println("----------------------------------------");
     }
     
     public static class Map {
@@ -273,12 +280,12 @@ class Search {
                         }
                         row = bufRead.readLine(); // skip line
                         row = bufRead.readLine();
-                        String[] startCoord = row.split(" ");
+                        String[] startCoord = row.split(" "); // parse start coordinates
                         startR = Integer.parseInt(startCoord[1]);
                         startC = Integer.parseInt(startCoord[0]);
                         
                         row = bufRead.readLine();
-                        String[] goalCoord = row.split(" ");
+                        String[] goalCoord = row.split(" "); // parse goal coordinates
                         goalR = Integer.parseInt(goalCoord[1]);
                         goalC = Integer.parseInt(goalCoord[0]);
                         
@@ -358,7 +365,6 @@ class Search {
                     newMap[newR][newC] = minWeight;
                 }
             }
-            System.out.println("finished creating coarse layer");
             return new Map(newH, newW, newMap);
         }
         
@@ -406,6 +412,8 @@ class Search {
             height = mapH+1;
             width = mapW+1;
             graph = new Vertex[height][width];
+			start = null;
+			goal = null;
             for (int r = 0; r < height; r++) {
                 for (int c = 0; c < width; c++) {
                     Vertex v = new Vertex(r, c);
@@ -479,6 +487,8 @@ class Search {
             width = mapW+1;
             coarseMap = map;
             graph = new Vertex[height][width];
+			start = null;
+			goal = null;
             for (int r = 0; r < height; r++) {
                 for (int c = 0; c < width; c++) {
                     Vertex v = new Vertex(r*blockH, c*blockW);
@@ -541,16 +551,14 @@ class Search {
                             Point squareOffset = diagonalSquares[i];
                             int mapR = r + squareOffset.x;
                             int mapC = c + squareOffset.y;
-                            double square = map.get(mapR,mapC);
-                            double weight = square*diagonal(blockH, blockW);
+                            double weight = map.get(mapR,mapC);
+                            weight = weight*diagonal(blockH, blockW);
                             Edge e = new Edge(v, neighbor, weight);
                             v.neighbors.add(e);
                         }
                     }
                 }
             }
-            
-            System.out.println("finished creating coarse Graph");
         }
         
         public Vertex get(int row, int col) {
@@ -572,6 +580,7 @@ class Search {
             // Goal is an INSIDE
                 goal = new Vertex(g.row, g.col);
                 goalType = 1;
+				double weight = coarseMap.get(g.row/blockH, g.col/blockW);				
                 for (int dr = 0; dr < 2; dr++) {
                 // dr = change in row
                     for (int dc = 0; dc < 2; dc++) {
@@ -579,55 +588,79 @@ class Search {
                         Vertex neighbor = graph[dr+g.row/blockH][dc+g.col/blockW];
                         int rowDiff = (int)Math.abs(neighbor.row-g.row);
                         int colDiff = (int)Math.abs(neighbor.col-g.col);
-                        double square = coarseMap.get(g.row/blockH, g.col/blockW);
-                        double weight = diagonal(rowDiff, colDiff)*square;
-                        goal.neighbors.add(new Edge(goal, neighbor, weight));
-                        neighbor.neighbors.add(new Edge(neighbor, goal, weight));
+                        goal.neighbors.add(new Edge(goal, neighbor, weight*diagonal(rowDiff,colDiff)));
+                        neighbor.neighbors.add(new Edge(neighbor, goal, weight*diagonal(rowDiff,colDiff)));
                     }
                 }
             } else if (g.row%blockH == 0) {
             // Goal is a HORIZONTAL BORDER
                 goal = new Vertex(g.row, g.col);
                 goalType = 2;
-                for (int dc = 0; dc < 2; dc++) {
-                    Vertex neighbor = graph[g.row/blockH][dc+g.col/blockW];
-                    int colDiff = (int)Math.abs(neighbor.col-g.col);
-                    double square1 = Double.POSITIVE_INFINITY;
-                    if (g.row/blockH-1 >= 0 && g.col/blockW < coarseMap.width) {
-                        square1 = coarseMap.get(g.row/blockH-1, g.col/blockW);
-                    }
-                    double square2 = Double.POSITIVE_INFINITY;
-                    if (g.row/blockH < coarseMap.height && g.col/blockW < coarseMap.width) {
-                        square2 = coarseMap.get(g.row/blockH, g.col/blockW);
-                    }
-                    double weight = Math.min(square1, square2)*colDiff;
-                    goal.neighbors.add(new Edge(goal, neighbor, weight));
-                    neighbor.neighbors.add(new Edge(neighbor, goal, weight));
+				double square1 = Double.POSITIVE_INFINITY;
+				double square2 = Double.POSITIVE_INFINITY;
+				if (g.row/blockH-1 >= 0 && g.col/blockW < coarseMap.width) {
+					square1 = coarseMap.get(g.row/blockH-1, g.col/blockW);
+				}
+				if (g.row/blockH < coarseMap.height && g.col/blockW < coarseMap.width) {
+					square2 = coarseMap.get(g.row/blockH, g.col/blockW);
+				}
+				double weight;
+				for (int dr = -1; dr < 2; dr++) {
+					if (dr+g.row/blockH >= 0 && dr+g.row/blockH < coarseGraph.height) {
+						for (int dc = 0; dc < 2; dc++) {
+							Vertex neighbor = graph[dr+g.row/blockH][dc+g.col/blockW];
+							int rowDiff = (int)Math.abs(neighbor.row-g.row);
+							int colDiff = (int)Math.abs(neighbor.col-g.col);
+							if (dr == -1) {
+								weight = square1;
+							} else if (dr == 1) {
+								weight = square2;
+							} else {
+								weight = Math.min(square1, square2);
+							}
+							weight = weight*diagonal(rowDiff,colDiff);
+							goal.neighbors.add(new Edge(goal, neighbor, weight));
+							neighbor.neighbors.add(new Edge(neighbor, goal, weight));
+						}
+					}
                 }
             } else {
             // Goal is a VERTICAL BORDER
                 goal = new Vertex(g.row, g.col);
                 goalType = 3;
-                for (int dr = 0; dr < 2; dr++) {
-                    Vertex neighbor = graph[dr+g.row/blockH][g.col/blockW];
-                    int rowDiff = (int)Math.abs(neighbor.row-g.row);
-                    double square1 = Double.POSITIVE_INFINITY;
-                    if (g.row/blockH < coarseMap.height && g.col/blockW-1 >= 0) {
-                        square1 = coarseMap.get(g.row/blockH, g.col/blockW-1);
-                    }
-                    double square2 = Double.POSITIVE_INFINITY;
-                    if (g.row/blockH < coarseMap.height && g.col/blockW < coarseMap.width) {
-                        square2 = coarseMap.get(g.row/blockH, g.col/blockW);
-                    }
-                    double weight = Math.min(square1, square2)*rowDiff;
-                    goal.neighbors.add(new Edge(goal, neighbor, weight));
-                    neighbor.neighbors.add(new Edge(neighbor, goal, weight));
-                }
+				double square1 = Double.POSITIVE_INFINITY;
+				double square2 = Double.POSITIVE_INFINITY;
+				if (g.row/blockH < coarseMap.height && g.col/blockW-1 >= 0) {
+					square1 = coarseMap.get(g.row/blockH, g.col/blockW-1);
+				}
+				if (g.row/blockH < coarseMap.height && g.col/blockW < coarseMap.width) {
+					square2 = coarseMap.get(g.row/blockH, g.col/blockW);
+				}
+				double weight;
+				for (int dc = -1; dc < 2; dc++) {
+					if (dc+g.col/blockW >= 0 && dc+g.col/blockW < coarseGraph.width) {
+						for (int dr = 0; dr < 2; dr++) {
+							Vertex neighbor = graph[dr+g.row/blockH][dc+g.col/blockW];
+							int rowDiff = (int)Math.abs(neighbor.row-g.row);
+							int colDiff = (int)Math.abs(neighbor.col-g.col);
+							if (dc == -1) {
+								weight = square1;
+							} else if (dc == 1) {
+								weight = square2;
+							} else {
+								weight = Math.min(square1, square2);
+							}
+							weight = weight*diagonal(rowDiff,colDiff);
+							goal.neighbors.add(new Edge(goal, neighbor, weight));
+							neighbor.neighbors.add(new Edge(neighbor, goal, weight));
+						}
+					}
+				}
             }
         }
         
         public double diagonal(int x, int y) {
-            return Math.max(x,y);
+            return Math.max(1.0, Math.min(x,y));
             /*if (x > y) {
                 return y*Math.sqrt(2.0)+(x-y);
             } else {
@@ -649,11 +682,15 @@ class Search {
             }
             if (goal != null) {
                 goal.prev = null;
-                goal.gScore = Double.POSITIVE_INFINITY;
+				goal.fScore = Double.POSITIVE_INFINITY;
+				goal.gScore = Double.POSITIVE_INFINITY;
+				goal.hScore = Double.POSITIVE_INFINITY;
             }
             if (start != null) {
                 start.prev = null;
-                start.gScore = Double.POSITIVE_INFINITY;
+				start.fScore = Double.POSITIVE_INFINITY;
+				start.gScore = Double.POSITIVE_INFINITY;
+				start.hScore = Double.POSITIVE_INFINITY;
             }
         }
         
@@ -714,6 +751,7 @@ class Search {
             col = argCol;
             neighbors = new ArrayList<Edge>();
             gScore = Double.POSITIVE_INFINITY;
+			fScore = Double.POSITIVE_INFINITY;
         }
         
         public Vertex(Vertex v) {
@@ -821,6 +859,7 @@ class Search {
         int graphH;
         int graphW;
         public double[][] hTable;
+		public double[][] gTable;
         Graph coarseGraph;
         Map coarseMap;
         PriorityQueue<Vertex> savedFringe;
@@ -829,7 +868,7 @@ class Search {
         long timer;
         
         public double diagonal(int x, int y) {
-            return Math.max(x, y);
+            return Math.max(1.0, Math.min(x,y));
             /*if (x > y) {
                 return y*Math.sqrt(2.0)+(x-y);
             } else {
@@ -844,6 +883,7 @@ class Search {
             graphH = graph.height;
             graphW = graph.width;
             hTable = new double[graphH][graphW];
+			gTable = new double[graphH][graphW];
             coarseGraph = argCoarseGraph;
             coarseMap = argCoarseMap;
             savedFringe = null;
@@ -853,6 +893,7 @@ class Search {
             for (int row = 0; row < graphH; row++) {
                 for (int col = 0; col < graphW; col++) {
                     hTable[row][col] = -1.0;
+					gTable[row][col] = -1.0;
                 }
             }
         }
@@ -860,174 +901,194 @@ class Search {
         public double getScore(Vertex v, Vertex goal) {
             int row = v.row;
             int col = v.col;
-            
-            if (hTable[row][col] != -1.0) {
-                return hTable[row][col];
-            } else {
-                int vBlockR = v.row/blockH;
-                int vBlockC = v.col/blockW;
-                int gBlockR = goal.row/blockH;
-                int gBlockC = goal.col/blockW;
-                double tempHScore = Double.POSITIVE_INFINITY;
-                Vertex corner = null;
-                double cornerScore = Double.POSITIVE_INFINITY;
-                int rowDiff = 0;
-                int colDiff = 0;
-                double weight = 0;
-                double square1 = Double.POSITIVE_INFINITY;
-                double square2 = Double.POSITIVE_INFINITY;
-                
-                if (row%blockH == 0 && col%blockW == 0) {
-                // v is a CORNER vertex
-                    smartAStar(coarseGraph.goal, coarseGraph.start, v);
-                    return hTable[row][col];
-                } else if (row%blockH != 0 && col%blockW != 0) {
-                // v is an INSIDE vertex
-                    for (int dr = 0; dr < 2; dr++) {
-                        for (int dc = 0; dc < 2; dc++) {
-                            corner = coarseGraph.get(dr+vBlockR, dc+vBlockC);
-                            if (hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW] == -1) {
-                                smartAStar(coarseGraph.goal, coarseGraph.start, corner);
-                            }
-                            cornerScore = hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW];
-                            rowDiff = (int)Math.abs(corner.row-row);
-                            colDiff = (int)Math.abs(corner.col-col);
-                            weight = coarseMap.get(vBlockR, vBlockC);
-                            tempHScore = Math.min(tempHScore, cornerScore+diagonal(rowDiff,colDiff)*weight);
-                        }
-                    }
-                    if (coarseGraph.goalType == 1 &&
-                        vBlockR == gBlockR &&
-                        vBlockC == gBlockC) {
-                    // goal is an INSIDE vertex and v is in the same block as goal
-                        rowDiff = (int)Math.abs(goal.row-row);
-                        colDiff = (int)Math.abs(goal.col-col);
-                        square1 = coarseMap.get(vBlockR, vBlockC);
-                        hTable[row][col] = diagonal(rowDiff, colDiff)*square1;
-                        return hTable[row][col];
-                    } else if (coarseGraph.goalType == 2 &&
-                        (vBlockR == gBlockR || vBlockR == gBlockR-1) &&
-                        vBlockC == gBlockC) {
-                    // goal is a HORIZONTAL vertex and v is in one of two goal blocks
-                        rowDiff = (int)Math.abs(goal.row-row);
-                        colDiff = (int)Math.abs(goal.col-col);
-                        square1 = coarseMap.get(row/blockH, col/blockW);
-                        tempHScore = Math.min(tempHScore, diagonal(rowDiff,colDiff)*square1);
-                    } else if (coarseGraph.goalType == 3 &&
-                        vBlockR == gBlockR &&
-                        (vBlockC == gBlockC || vBlockC == gBlockC-1)) {
-                    // goal is a VERTICAL vertex and v is in one of the two goal blocks
-                        rowDiff = (int)Math.abs(goal.row-row);
-                        colDiff = (int)Math.abs(goal.col-col);
-                        square1 = coarseMap.get(vBlockR, vBlockC);
-                        tempHScore = Math.min(tempHScore, diagonal(rowDiff,colDiff)*square1);
-                    }
-                    hTable[row][col] = tempHScore;
-                    return hTable[row][col];                        
-                } else if (row%blockH == 0) {
-                // v is a HORIZONTAL BORDER vertex
-                    if (vBlockR-1 >= 0 && vBlockC < coarseMap.width) {
-                        square1 = coarseMap.get(vBlockR-1, vBlockC);
-                    }
-                    if (vBlockR < coarseMap.height && vBlockC < coarseMap.width) {
-                        square2 = coarseMap.get(vBlockR, vBlockC);
-                    }
-                    for (int dr = -1; dr < 2; dr++) {
-                        if (dr+vBlockR >= 0 && dr+vBlockR < coarseGraph.height) {
-                            for (int dc = 0; dc < 2; dc++) {
-                                corner = coarseGraph.get(dr+vBlockR, dc+vBlockC);
-                                if (hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW] == -1) {
-                                    smartAStar(coarseGraph.goal, coarseGraph.start, corner);
-                                }
-                                cornerScore = hTable[(dr+row/blockH)*blockH][(dc+col/blockW)*blockW];
-                                rowDiff = (int)Math.abs(corner.row-row);
-                                colDiff = (int)Math.abs(corner.col-col);
-                                if (dr == 0) {
-                                    weight = Math.min(square1, square2);
-                                } else if (dr == -1) {
-                                    weight = square1;
-                                } else {
-                                    weight = square2;
-                                }
-                                tempHScore = Math.min(tempHScore, cornerScore+diagonal(rowDiff,colDiff)*weight);
-                            }
-                        }
-                    }
-                    if (coarseGraph.goalType == 1 &&
-                        vBlockC == gBlockC &&
-                        (vBlockR == gBlockR || vBlockR-1 == gBlockR)) {
-                    // goal is an INSIDE vertex and is in one of the two blocks that v touches
-                        rowDiff = (int)Math.abs(goal.row-row);
-                        colDiff = (int)Math.abs(goal.col-col);
-                        if (vBlockR-1 == gBlockR) {
-                            weight = square1;
-                        } else {
-                            weight = square2;
-                        }
-                        tempHScore = Math.min(tempHScore, diagonal(rowDiff, colDiff)*weight);
-                    } else if (coarseGraph.goalType == 2 &&
-                        v.row == goal.row &&
-                        vBlockC == gBlockC) {
-                    // goal is also on this HORIZONTAL BORDER
-                        colDiff = (int)Math.abs(goal.col-col);
-                        weight = Math.min(square1, square2);
-                        tempHScore = Math.min(tempHScore, colDiff*weight);
-                    }
-                    hTable[row][col] = tempHScore;
-                    return tempHScore;
-                } else {
-                // v is a VERTICAL BORDER vertex
-                    if (vBlockR < coarseMap.height && vBlockC-1 >= 0) {
-                        square1 = coarseMap.get(vBlockR, vBlockC-1);
-                    }
-                    if (vBlockR < coarseMap.height && vBlockC < coarseMap.width) {
-                        square2 = coarseMap.get(vBlockR, vBlockC);
-                    }
-                    for (int dc = -1; dc < 2; dc++) {
-                        if (dc+vBlockC >= 0 && dc+vBlockC < coarseGraph.width) {
-                            for (int dr = 0; dr < 2; dr++) {
-                                corner = coarseGraph.get(dr+vBlockR, dc+vBlockC);
-                                if (hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW] == -1) {
-                                    smartAStar(coarseGraph.goal, coarseGraph.start, corner);
-                                }
-                                cornerScore = hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW];
-                                rowDiff = (int)Math.abs(corner.row-row);
-                                colDiff = (int)Math.abs(corner.col-col);
-                                if (dc == 0) {
-                                    weight = Math.min(square1, square2);
-                                } else if (dc == -1) {
-                                    weight = square1;
-                                } else {
-                                    weight = square2;
-                                }
-                                tempHScore = Math.min(tempHScore, cornerScore+diagonal(rowDiff,colDiff)*weight);
-                            }
-                        }
-                    }
-                    if (coarseGraph.goalType == 1 &&
-                        vBlockR == gBlockR &&
-                        (vBlockC == gBlockC || vBlockC-1 == gBlockC)) {
-                    // goal is an INSIDE vertex and is in one of the two blocks that v touches
-                        rowDiff = (int)Math.abs(goal.row-row);
-                        colDiff = (int)Math.abs(goal.col-col);
-                        if (vBlockC-1 == gBlockC) {
-                            weight = square1;
-                        } else {
-                            weight = square2;
-                        }
-                        tempHScore = Math.min(tempHScore, diagonal(rowDiff, colDiff)*weight);
-                    } else if (coarseGraph.goalType == 3 &&
-                        v.col == goal.col &&
-                        vBlockR == gBlockR) {
-                    // goal is also on this VERTICLE BORDER
-                        rowDiff = (int)Math.abs(goal.row-row);
-                        weight = Math.min(square1, square2);
-                        tempHScore = Math.min(tempHScore, rowDiff*weight);
-                    }
-                    hTable[row][col] = tempHScore;
-                    return tempHScore;
-                }
-            }
+			gTable[v.row][v.col] = v.gScore;
+			
+			int vBlockR = row/blockH;
+			int vBlockC = col/blockW;
+			int gBlockR = goal.row/blockH;
+			int gBlockC = goal.col/blockW;
+			double tempHScore = Double.POSITIVE_INFINITY;
+			Vertex corner = null;
+			double cornerScore = Double.POSITIVE_INFINITY;
+			int rowDiff = 0;
+			int colDiff = 0;
+			double weight = 0;
+			double square1 = Double.POSITIVE_INFINITY;
+			double square2 = Double.POSITIVE_INFINITY;
+			
+			if (row%blockH == 0 && col%blockW == 0) {
+			// v is a CORNER vertex
+				smartAStar(coarseGraph.goal, coarseGraph.start, v);
+				return hTable[row][col];
+			} else if (row%blockH != 0 && col%blockW != 0) {
+			// v is an INSIDE vertex
+				for (int dr = 0; dr < 2; dr++) {
+					for (int dc = 0; dc < 2; dc++) {
+						corner = coarseGraph.get(dr+vBlockR, dc+vBlockC);
+						if (hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW] == -1) {
+							smartAStar(coarseGraph.goal, coarseGraph.start, corner);
+						}
+						cornerScore = hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW];
+						rowDiff = (int)Math.abs(corner.row-row);
+						colDiff = (int)Math.abs(corner.col-col);
+						weight = coarseMap.get(vBlockR, vBlockC);
+						tempHScore = Math.min(tempHScore, cornerScore+diagonal(rowDiff,colDiff)*weight);
+					}
+				}
+				if (coarseGraph.goalType == 1 &&
+					vBlockR == gBlockR &&
+					vBlockC == gBlockC) {
+				// goal is an INSIDE vertex and v is in the same block as goal
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					square1 = coarseMap.get(vBlockR, vBlockC);
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff, colDiff)*square1);
+				} else if (coarseGraph.goalType == 2 &&
+					(vBlockR == gBlockR || vBlockR == gBlockR-1) &&
+					vBlockC == gBlockC) {
+				// goal is a HORIZONTAL vertex and v is in one of two goal blocks
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					square1 = coarseMap.get(row/blockH, col/blockW);
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff,colDiff)*square1);
+				} else if (coarseGraph.goalType == 3 &&
+					vBlockR == gBlockR &&
+					(vBlockC == gBlockC || vBlockC == gBlockC-1)) {
+				// goal is a VERTICAL vertex and v is in one of the two goal blocks
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					square1 = coarseMap.get(vBlockR, vBlockC);
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff,colDiff)*square1);
+				}
+				hTable[row][col] = tempHScore;
+				return hTable[row][col];                        
+			} else if (row%blockH == 0) {
+			// v is a HORIZONTAL BORDER vertex
+				if (vBlockR-1 >= 0 && vBlockC < coarseMap.width) {
+					square1 = coarseMap.get(vBlockR-1, vBlockC);
+				}
+				if (vBlockR < coarseMap.height && vBlockC < coarseMap.width) {
+					square2 = coarseMap.get(vBlockR, vBlockC);
+				}
+				for (int dr = -1; dr < 2; dr++) {
+					if (dr+vBlockR >= 0 && dr+vBlockR < coarseGraph.height) {
+						for (int dc = 0; dc < 2; dc++) {
+							corner = coarseGraph.get(dr+vBlockR, dc+vBlockC);
+							if (hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW] == -1) {
+								smartAStar(coarseGraph.goal, coarseGraph.start, corner);
+							}
+							cornerScore = hTable[(dr+row/blockH)*blockH][(dc+col/blockW)*blockW];
+							rowDiff = (int)Math.abs(corner.row-row);
+							colDiff = (int)Math.abs(corner.col-col);
+							if (dr == 0) {
+								weight = Math.min(square1, square2);
+							} else if (dr == -1) {
+								weight = square1;
+							} else {
+								weight = square2;
+							}
+							tempHScore = Math.min(tempHScore, cornerScore+diagonal(rowDiff,colDiff)*weight);
+						}
+					}
+				}
+				if (coarseGraph.goalType == 1 &&
+					vBlockC == gBlockC &&
+					(vBlockR == gBlockR || vBlockR-1 == gBlockR)) {
+				// goal is an INSIDE vertex and is in one of the two blocks that v touches
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					if (vBlockR-1 == gBlockR) {
+						weight = square1;
+					} else {
+						weight = square2;
+					}
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff, colDiff)*weight);
+				} else if (coarseGraph.goalType == 2 &&
+					v.row == goal.row &&
+					vBlockC == gBlockC) {
+				// goal is also on this HORIZONTAL BORDER
+					colDiff = (int)Math.abs(goal.col-col);
+					weight = Math.min(square1, square2);
+					tempHScore = Math.min(tempHScore, colDiff*weight);
+				} else if (coarseGraph.goalType == 3 &&
+					(vBlockC == gBlockC || 1+v.col/blockW == gBlockC) &&
+					(vBlockR == gBlockR || vBlockR-1 == gBlockR)) {
+				// goal is on a VERTICAL BORDER forming an 'H' with this HORIZONTAL border
+					if (goal.row < v.row) {
+						weight = square1;
+					} else {
+						weight = square2;
+					}
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff,colDiff)*weight);
+				}
+				hTable[row][col] = tempHScore;
+				return tempHScore;
+			} else {
+			// v is a VERTICAL BORDER vertex
+				if (vBlockR < coarseMap.height && vBlockC-1 >= 0) {
+					square1 = coarseMap.get(vBlockR, vBlockC-1);
+				}
+				if (vBlockR < coarseMap.height && vBlockC < coarseMap.width) {
+					square2 = coarseMap.get(vBlockR, vBlockC);
+				}
+				for (int dc = -1; dc < 2; dc++) {
+					if (dc+vBlockC >= 0 && dc+vBlockC < coarseGraph.width) {
+						for (int dr = 0; dr < 2; dr++) {
+							corner = coarseGraph.get(dr+vBlockR, dc+vBlockC);
+							if (hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW] == -1) {
+								smartAStar(coarseGraph.goal, coarseGraph.start, corner);
+							}
+							cornerScore = hTable[(dr+vBlockR)*blockH][(dc+vBlockC)*blockW];
+							rowDiff = (int)Math.abs(corner.row-row);
+							colDiff = (int)Math.abs(corner.col-col);
+							if (dc == 0) {
+								weight = Math.min(square1, square2);
+							} else if (dc == -1) {
+								weight = square1;
+							} else {
+								weight = square2;
+							}
+							tempHScore = Math.min(tempHScore, cornerScore+diagonal(rowDiff,colDiff)*weight);
+						}
+					}
+				}
+				if (coarseGraph.goalType == 1 &&
+					vBlockR == gBlockR &&
+					(vBlockC == gBlockC || vBlockC-1 == gBlockC)) {
+				// goal is an INSIDE vertex and is in one of the two blocks that v touches
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					if (vBlockC-1 == gBlockC) {
+						weight = square1;
+					} else {
+						weight = square2;
+					}
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff, colDiff)*weight);
+				} else if (coarseGraph.goalType == 3 &&
+					v.col == goal.col &&
+					vBlockR == gBlockR) {
+				// goal is also on this VERTICAL BORDER
+					rowDiff = (int)Math.abs(goal.row-row);
+					weight = Math.min(square1, square2);
+					tempHScore = Math.min(tempHScore, rowDiff*weight);
+				} else if (coarseGraph.goalType == 2 &&
+					(vBlockR == gBlockR || 1+vBlockR == gBlockR) &&
+					(vBlockC == gBlockC || vBlockC-1 == gBlockC)) {
+				// goal is on a HORIZONTAL BORDER forming an 'I' with this VERTICAL border
+					if (goal.col < v.col) {
+						weight = square1;
+					} else {
+						weight = square2;
+					}
+					rowDiff = (int)Math.abs(goal.row-row);
+					colDiff = (int)Math.abs(goal.col-col);
+					tempHScore = Math.min(tempHScore, diagonal(rowDiff,colDiff)*weight);
+				}					
+				hTable[row][col] = tempHScore;
+				return tempHScore;
+			}
         }
         
         public void smartAStar(Vertex source, Vertex end, Vertex stopper) {
@@ -1076,14 +1137,21 @@ class Search {
         
         public String tableAsString() {
             String output = "";
-            DecimalFormat df = new DecimalFormat("000");
+            DecimalFormat gf = new DecimalFormat("000.0");
+            DecimalFormat hf = new DecimalFormat("000");
             for (int r = 0; r < graphH; r++) {
                 for (int c = 0; c < graphW; c++) {
-                    String formatted = df.format(hTable[r][c]);
+					String formatGS = gf.format(gTable[r][c]);
+                    String formatHS = hf.format(hTable[r][c]);
+					if (gTable[r][c] == -1) {
+						output += "(-----,";
+					} else {
+						output += "("+formatGS+",";
+					}
                     if (hTable[r][c] == -1) {
-                        output += "--- ";
+                        output += "---) ";
                     } else {
-                        output += formatted+" ";
+                        output += formatHS+") ";
                     }
                 }
                 output += "\n";
@@ -1125,20 +1193,116 @@ class Search {
             return nodesPopped;
         }
     }
-    
-    public static void aStar(Vertex start, Vertex goal, Heuristic h, Graph graph) {
+    	
+	public static class Fringe {
+		PriorityQueue<Vertex> fringe;
+		int height;
+		int width;
+		byte[][] open;
+		int size;
+		
+		public Fringe(PriorityQueue<Vertex> argFringe, Graph graph) {
+			fringe = argFringe;
+			height = graph.height;
+			width = graph.width;
+			open = new byte[height][width];
+			size = 0;
+		}
+		
+		public void add(Vertex v) {
+			fringe.add(v);
+			open[v.row][v.col] = 1;
+			size += 1;
+		}
+		
+		public Vertex poll() {
+			Vertex v = fringe.poll();
+			open[v.row][v.col] = 0;
+			size = size-1;
+			return v;
+		}
+		
+		public boolean isEmpty() {
+			return fringe.isEmpty();
+			//return (size <= 0);
+		}
+		
+		public String toString() {
+			return fringe.toString();
+		}
+	}
+	
+	public static void aStar(Vertex start, Vertex goal, Heuristic h, Graph graph) {
         long startTimer = System.nanoTime();
-        PriorityQueue<Vertex> fringe = new PriorityQueue<Vertex>();
-        Hashtable<Point, Vertex> closed = new Hashtable<Point, Vertex>();
+		double[][] gTable = new double[graph.height][graph.width];
+        //PriorityQueue<Vertex> fringe = new PriorityQueue<Vertex>();
+        //Hashtable<Point, Vertex> closed = new Hashtable<Point, Vertex>();
+		//Hashtable<Point, Vertex> open = new Hashtable<Point, Vertex>();
+		Fringe fringe = new Fringe(new PriorityQueue<Vertex>(), graph);
         
         start.gScore = 0.0;
+		goal.gScore = Double.POSITIVE_INFINITY;
+		gTable[start.row][start.col] = 0.0;
         start.hScore = h.getScore(start, goal);
         start.fScore = start.gScore + start.hScore;
         fringe.add(start);
+		//open.put(new Point(start.row, start.col), start);
         Vertex v = start;
-        int size = 1;
+		
+		/*while (!fringe.isEmpty()) { // stopping condition for fringe popping
+			//v.gScore < goal.gScore && 
+            h.inc();
+            v = fringe.poll();
+			open.remove(new Point(v.row, v.col));
+			if (v.equals(goal)) {
+				break;
+			}
+			closed.put(new Point(v.row, v.col), v);
+            for (Edge e : v.neighbors) {
+                Vertex neighbor = e.end;
+                double tempGScore = v.gScore + e.weight;
+				double tempHScore = h.getScore(neighbor, goal);
+				double tempFScore = tempGScore + tempHScore;				
+				if (closed.get(new Point(neighbor.row, neighbor.col)) != null && tempFScore >= neighbor.fScore) {
+					continue;
+				}
+				if (open.get(new Point(neighbor.row, neighbor.col)) == null || tempFScore < neighbor.fScore) {
+                    neighbor.prev = v;
+                    neighbor.gScore = tempGScore;
+					neighbor.fScore = tempFScore;
+                    if (open.get(new Point(neighbor.row, neighbor.col)) == null) {
+						fringe.add(neighbor);
+						open.put(new Point(neighbor.row, neighbor.col), neighbor);
+					}
+                }
+            }
+        }*/
         
-        while (v.fScore < goal.gScore && size != 0) { // stopping condition for fringe popping
+        while (!fringe.isEmpty()) { // stopping condition for fringe popping
+			//v.gScore <= goal.gScore && 
+            v = fringe.poll();
+			//open.remove(new Point(v.row,v.col));
+			h.inc();
+			if (v.fScore >= goal.gScore) {
+				continue;
+			}
+            for (Edge e : v.neighbors) {
+                Vertex neighbor = e.end;
+                double tempGScore = v.gScore + e.weight;
+                if (tempGScore < neighbor.gScore) {
+				// if this path is better than the current path through NEIGHBOR
+                    neighbor.prev = v;
+                    neighbor.gScore = tempGScore;
+					gTable[neighbor.row][neighbor.col] = neighbor.gScore;
+					neighbor.hScore = h.getScore(neighbor, goal);
+                    neighbor.fScore = neighbor.gScore + neighbor.hScore;
+                    fringe.add(neighbor);
+					//open.put(new Point(neighbor.row, neighbor.col), neighbor);
+                }
+            }
+        }
+		
+		/*while (v.fScore < goal.gScore && size != 0) { // stopping condition for fringe popping
             h.inc();
             v = fringe.poll();
             size = size-1;
@@ -1146,12 +1310,12 @@ class Search {
             for (Edge e : v.neighbors) {
                 Vertex neighbor = e.end;
                 double tempGScore = v.gScore + e.weight;
-                if (tempGScore > neighbor.gScore ) { 
+                if (tempGScore > neighbor.gScore ) {
                 // ignores update stage if cost is greater than current cost
                     continue;
                 }
                 //if (closed.get(new Point(neighbor.row, neighbor.col)) != null) continue;
-                if (tempGScore <= neighbor.gScore) { 
+                if (tempGScore <= neighbor.gScore) {
                 // otherwise updates its neighbors and adds to fringe
                     boolean check = fringe.remove(neighbor);
                     if (check) {
@@ -1165,7 +1329,8 @@ class Search {
                     size = size+1;
                 }
             }
-        }
+        }*/
+		
         long endTimer = System.nanoTime();
         graph.timer = (endTimer-startTimer)/1000;
     }
