@@ -1,0 +1,532 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage{multicol}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 2
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\align center
+
+\series bold
+Hierarchecal A* Search for Maps with Variable Threat Levels
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+1 Problem Definition
+\end_layout
+
+\begin_layout Standard
+A map is defined as an array of squares, each represented by a number that
+ indicates the level of threat present on that square.
+ A graph, in the context of this problem, is defined as an array of vertices
+ and a set of edges, which connect adjacent vertices and indicate the cost
+ of traveling from vertex to another.
+ The connectivity of the graph determines which vertices are considered
+ ‘adjacent’.
+ In the case where the connectivity is 4 – the ‘4-connect’ case – a vertex
+ is ‘adjacent’ to other vertices which lie in any of the four cardinal direction
+s (N, S, E, or W) relative to itself.
+ In the 8-connect case, a vertex is ‘adjacent’ to vertices which lie in
+ any of the four cardinal directions or the four intermediate directions
+ (NE, SE, NW, or SW).
+\end_layout
+
+\begin_layout Standard
+The input to this algorithm is a map, a pair of starting coordinates, and
+ a pair of goal coordinates.
+ A graph is then constructed from this map by treating each corner of a
+ map-square as a vertex and adding edges between vertices which are adjacent
+ according to the 8-connect definition.
+ The weight of each edge which runs in the cardinal direction is equal to
+ the lesser of the two squares that it neighbors.
+ The weight of each edge which runs diagonally through a square is equal
+ to √2 times the weight of the square:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig1.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Once the graph is constructed, the algorithm performs a search between the
+ start and goal coordinate pairs, using the A* search algorithm and our
+ heuristic, CORNERS.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2 The CORNERS Heuristic
+\end_layout
+
+\begin_layout Standard
+Our heuristic estimates the path cost from a vertex in the graph to the
+ goal – the ‘h-score’ – by creating a replica of the graph on a lower resolution
+ – the ‘coarse’ graph – and calculating the vertex’s path cost to the goal
+ on that graph.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2.1 Coarse Graph Construction
+\end_layout
+
+\begin_layout Standard
+A coarse map is first generated from the original input map by blocking
+ off m by n groups of squares.
+ This m×n block represents one unit square on the coarse map, and its weight
+ is the minimum weight of all the squares which it encompasses: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig2.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In the figure above, a 6×4 map is blocked off into blocks of 3×2 squares
+ each.
+\end_layout
+
+\begin_layout Standard
+A coarse graph is then constructed by treating the corners of each new square
+ and forming 8-connect edges between them.
+ The weight of each vertical edge is m times the lesser of the two squares
+ it neighbors.
+ Similarly, the weight of each horizontal edge is n times the lesser of
+ the two squares it neighbors.
+ The weight of a diagonal edge is equal to the weight of the square it crosses
+ times the lesser of m and n: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig3.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2.2 Heuristic Calculation
+\end_layout
+
+\begin_layout Standard
+In calculating the h-score of a given vertex v in the original graph, the
+ CORNERS heuristic returns the minimum cost of going from v to the goal
+ g in the coarse graph.
+ The method of determining this minimum-cost path on the coarse graph depends
+ on implementation.
+ We choose to perform an A* search using the Euclidean distance as the heuristic
+ starting at g, which – upon running to termination – will determine the
+ minimum cost between g and every other vertex on the coarse graph.
+\end_layout
+
+\begin_layout Standard
+Note that the creation of a coarse graph decreases the resolution of the
+ graph and subsequently only a fraction of the vertices which were present
+ in the original graph appear in the coarse graph.
+ More specifically, using (row r, column c) notation, only vertices which
+ satisfy the following conditions are preserved in the coarse graph:
+\end_layout
+
+\begin_layout Standard
+r mod m=0 c mod n=0
+\end_layout
+
+\begin_layout Standard
+This causes a problem because if either a vertex v or the goal vertex g
+ does not exist in the coarse graph, the minimum cost from v to g – and
+ subsequently the h-score – is undefined.
+\end_layout
+
+\begin_layout Standard
+In order to resolve these problems, we first introduce a notation to categorize
+ the different kinds of vertices which may or may not be preserved on the
+ coarse graph.
+ A vertex which satisfies r mod m=0 and c mod n=0 is a corner vertex, because
+ it is preserved on the coarse graph and as such is a corner of some coarse-squa
+re.
+ A vertex which satisfies neither of these conditions is an inside vertex,
+ because it lies within one of the coarse blocks.
+ A vertex which only satisfies r mod m=0 is a horizontal vertex, because
+ it lies on a horizontal edge in the coarse graph.
+ Similarly, a vertex which only satisfies c mod n=0 is a vertical vertex,
+ because it lies on a vertical edge in the coarse graph.
+ These four types of vertices are illustrated below: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig4.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Having established this notation, we first resolve the problem where g is
+ eliminated due to the generation of the coarse graph.
+ In the cases where g is inside, horizontal, or vertical, an extra goal
+ vertex g’ is created in the coarse graph and is connected to all the corner
+ vertices which it shares a block with.
+ This is demonstrated with a horizontal goal vertex below:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig5.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The weight w of an edge formed between g’ and an existing corner vertex
+ u depends on the type of edge:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+[FILL]
+\end_layout
+
+\begin_layout Standard
+In the equations above, c_g is the column-coordinate of the goal vertex,
+ c_u is the column-coordinate of the corner it is connecting to, etc.
+ S_1 and S_2 refer to the weights of the squares which neighbor a horizontal
+ or vertical edge, while S refers to the weight of the square that a diagonal
+ edge cuts across.
+\end_layout
+
+\begin_layout Standard
+By adding this extra vertex and connecting it to its neighboring corner
+ vertices, we guarantee that some goal vertex, may it be g or g’, exists
+ in the coarse graph.
+\end_layout
+
+\begin_layout Standard
+To solve the problem where a vertex v may not exist in the coarse graph,
+ we use the following formula to calculate the h-score of a vertex which
+ is inside, horizontal, or vertical:
+\end_layout
+
+\begin_layout Standard
+where the distance between two vertices u and v are defined by:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+[FILL]
+\end_layout
+
+\begin_layout Standard
+The following demonstrates this heuristic calculation for an inside vertex
+ case: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig6.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Since v is only separated by a row difference of 1 from every corner vertex
+ that it shares a block with, d(u,v)=1×S=2 for all four corners.
+ The h-score of v therefore is 8 in this case.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2.3 Special Cases
+\end_layout
+
+\begin_layout Standard
+During the calculation of the heuristic, some vertices in the graph may
+ share a block with the goal vertex or belong in a block neighboring the
+ block containing the goal vertex.
+ There are 9 such cases:
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2.4 Proof of Admissibility
+\end_layout
+
+\begin_layout Standard
+Consider between any two vertices, v_S and v_G, on the original graph.
+ We will prove that the CORNERS heuristic is admissible by showing that
+ the path cost between these two points on coarse layer is never greater
+ than the path cost on the original graph.
+\end_layout
+
+\begin_layout Standard
+First, consider how the path cost on the coarse graph is calculated.
+ It can be split into 3 parts: the weight of the edge connecting the starting
+ vertex vS to the best corner cS of the block it is contained in; the weight
+ of edge connecting the goal vertex v_G to the best corner c_G of the block
+ that it is contained in; and finally the cost of the path from c_S to c_G.
+\end_layout
+
+\begin_layout Standard
+In the case where v_S and v_G are corner vertices, i.e.
+ are preserved on the coarse graph, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+2.5 Proof of Inconsistency
+\end_layout
+
+\begin_layout Standard
+The fact that the CORNERS heuristic is admissible, but not consistent can
+ be seen in the following case: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename diagrams/fig7.png
+	width 3in
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \space{}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Due to the fact that the cost of diagonals are determined by the minimum
+ of their cardinal direction costs, combined with the heuristics' tendency
+ to overlook small regions of high cost (such as the unit square of cost
+ 10 above), the f-score along the best path is not monotonically decreasing
+ on certain maps.
+ As a result, CORNERS is not a consistent heuristic.
+\end_layout
+
+\end_body
+\end_document
